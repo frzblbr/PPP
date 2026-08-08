@@ -59,13 +59,48 @@
 
   /* ---------- Header ---------- */
   header{
+    position: relative;
     display:flex; justify-content:space-between; align-items:center;
     padding-bottom: 16px; margin-bottom: 22px;
     border-bottom: 1px solid var(--border);
   }
   .brand{ display:flex; align-items:baseline; gap:8px; cursor:pointer; }
   .brand .mark{ color: var(--accent); font-weight:700; font-size:15px; }
-  .brand .name{ font-size: 13px; color: var(--ink-dim); letter-spacing: 0.02em; }
+
+  /* Tiny easter-egg puzzle pinned in the header: three P-pentominoes
+     spell out "PPP". Purely decorative, solvable independently of the
+     rest of the app. Solving it reveals the page title below the header. */
+  .mini-puzzle{
+    position: absolute; left: 50%; top: 50%;
+    transform: translate(-50%, -50%);
+    display:flex; align-items:center; gap:7px;
+    opacity:0.45; transition: opacity .2s ease;
+    cursor:default;
+  }
+  .mini-puzzle:hover{ opacity:1; }
+  .mini-puzzle.solved{ opacity:1; }
+  .mini-puzzle .board{ gap:1.5px; touch-action:none; }
+  .mini-puzzle .mini-tag{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:10px;
+    color: var(--accent); letter-spacing:0.05em; white-space:nowrap;
+  }
+  @media (max-width: 620px){
+    .mini-puzzle{ display:none; }
+  }
+
+  .title-reveal{
+    text-align:center;
+    font-family:'Space Grotesk',sans-serif; font-weight:700;
+    font-size: 16px; letter-spacing:0.01em;
+    color: var(--accent);
+    height: 0; margin-bottom: 0; overflow:hidden;
+    opacity: 0; transform: translateY(-4px);
+    transition: opacity .5s ease, transform .5s ease, height .5s ease, margin-bottom .5s ease;
+  }
+  .title-reveal.show{
+    height: 24px; margin-bottom: 18px;
+    opacity: 1; transform: translateY(0);
+  }
 
   .theme-toggle{
     display:flex; align-items:center; gap:8px;
@@ -321,20 +356,23 @@
   <header>
     <div class="brand" id="brandHome">
       <span class="mark">◧</span>
-      <span class="name">Polyomino Partition Puzzle</span>
+    </div>
+    <div class="mini-puzzle" id="miniPuzzle" title="숨은 퍼즐: 조각 3개로 나눠보세요">
+      <div class="board" id="boardMini"></div>
+      <span class="mini-tag" id="miniTag"></span>
     </div>
     <div class="theme-toggle">
       <span id="themeLabel">라이트</span>
       <div class="switch" id="themeSwitch"><div class="knob"></div></div>
     </div>
   </header>
+  <div class="title-reveal" id="titleReveal">Polyomino Partition Puzzle</div>
 
   <main id="screens">
 
     <!-- ===== HOME ===== -->
     <section class="screen active" id="screen-home">
       <div class="page-head">
-        <span class="eyebrow">Dissection Puzzle</span>
         <div class="page-title">모드를 선택하세요</div>
         <div class="page-sub">도형을 똑같은 모양의 폴리오미노 조각(회전·대칭 허용)으로만 빈틈없이 나누는 퍼즐입니다.</div>
       </div>
@@ -2011,6 +2049,36 @@
     if(currentSmallIdx < list.length-1) openColorPlay(currentSmallIdx+1);
     else goto('colorSmallList');
   });
+
+  /* =====================================================================
+     HEADER EASTER EGG — tiny "PPP" puzzle (3 P-pentominoes) pinned in the
+     header. Purely decorative and independent of every other mode.
+  ===================================================================== */
+  (function setupMiniPuzzle(){
+    const region = parseColorGrid('111111;111111;101010').region; // 15 cells, no colored markers here
+    const miniWrap = document.getElementById('miniPuzzle');
+    const miniTag = document.getElementById('miniTag');
+    const titleReveal = document.getElementById('titleReveal');
+    const miniBoard = new PuzzleBoard(document.getElementById('boardMini'), {
+      onChange: ()=>{},
+      onWin: ()=>{
+        miniWrap.classList.add('solved');
+        titleReveal.classList.add('show');
+      }
+    });
+    // Keep the cells tiny regardless of available width — this widget is
+    // meant to be a small aside, not a full-size board.
+    miniBoard.cellSizePx = ()=> 12;
+    miniBoard.load(region, { pieceCount: 3 });
+    miniWrap.addEventListener('click', ()=>{
+      if(miniBoard.won){
+        miniWrap.classList.remove('solved');
+        miniTag.textContent = '';
+        titleReveal.classList.remove('show');
+        miniBoard.load(region, { pieceCount: 3 });
+      }
+    });
+  })();
 
   /* =====================================================================
      RESIZE
