@@ -72,7 +72,7 @@
      rest of the app. Solving it reveals the page title below the header. */
   .mini-puzzle{
     position: absolute; left: 50%; top: 50%;
-    transform: translate(-50%, -50%);
+    transform: translate(-50%, calc(-50% - 6px));
     display:flex; align-items:center; gap:7px;
     opacity:0.45; transition: opacity .2s ease;
     cursor:default;
@@ -2060,7 +2060,14 @@
     const miniTag = document.getElementById('miniTag');
     const titleReveal = document.getElementById('titleReveal');
     const miniBoard = new PuzzleBoard(document.getElementById('boardMini'), {
-      onChange: ()=>{},
+      onChange: ()=>{
+        // A piece can be removed by clicking it even after winning; if that
+        // un-solves the puzzle, hide the title reveal again too.
+        if(!miniBoard.won){
+          miniWrap.classList.remove('solved');
+          titleReveal.classList.remove('show');
+        }
+      },
       onWin: ()=>{
         miniWrap.classList.add('solved');
         titleReveal.classList.add('show');
