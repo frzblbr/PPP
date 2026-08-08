@@ -136,11 +136,16 @@
   .page-sub{ color: var(--ink-dim); font-size: 12.5px; margin-top: 6px; line-height:1.6; max-width: 52ch; }
 
   .back-btn{
-    background:none; border:none; color: var(--ink-dim); font-family:inherit;
-    font-size: 12px; cursor:pointer; padding: 4px 0; margin-bottom: 14px;
-    display:flex; align-items:center; gap:6px;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    color: var(--ink); font-family:inherit; font-weight:600;
+    font-size: 12.5px; cursor:pointer; padding: 7px 14px; margin-bottom: 16px;
+    display:inline-flex; align-items:center; gap:6px;
+    transition: border-color .15s ease, color .15s ease, transform .1s ease;
   }
-  .back-btn:hover{ color: var(--ink); }
+  .back-btn:hover{ border-color: var(--accent); color: var(--accent); }
+  .back-btn:active{ transform: translateX(-1px); }
 
   /* ---------- Home cards ---------- */
   .mode-grid{ display:grid; grid-template-columns: 1fr; gap: 12px; }
@@ -1019,6 +1024,20 @@
       '000110;121110;121110;011211;011111;021000',
       '000110;121110;111110;012211;011112;011000',
       '000110;211110;111110;021211;011111;012000',
+    ]},
+    { smalls: [
+      '00011100;00212111;01111110;11221100;00111000',
+      '00011100;00212211;01112110;11111100;00111000',
+      '00011200;00211111;01111110;11211100;00121000',
+      '00011200;00111112;01111110;11211200;00111000',
+      '00011200;00121111;01111110;11112100;00112000',
+      '00022100;00111111;01111110;11111200;00121000',
+    ]},
+    { smalls: [
+      '0011;1121;1121;1121;1211;1111;1100',
+      '0011;1211;1121;1122;1111;1111;1100',
+      '0011;2222;1111;1111;1111;1111;1100',
+      '0011;1121;1121;1121;2111;1111;1100',
     ]},
   ];
 
