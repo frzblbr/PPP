@@ -1,0 +1,2033 @@
+<!DOCTYPE html>
+<html lang="ko" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, user-scalable=no">
+<title>Polyomino Partition Puzzle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --radius: 8px;
+    --radius-sm: 4px;
+  }
+  html[data-theme="light"]{
+    --bg: #FAFAF9;
+    --panel: #F2F2EF;
+    --panel-2: #FFFFFF;
+    --border: #E4E4E0;
+    --ink: #18181B;
+    --ink-dim: #8A8A85;
+    --accent: #4C5FD5;
+    --accent-ink: #FFFFFF;
+    --cell-empty: #EDEDE9;
+    --cell-empty-border: #DEDEDA;
+    --cell-hover: #E3E5FA;
+    --danger: #DD4F68;
+    --color-mark: #3A3A38;
+    --shadow: 0 1px 2px rgba(20,20,20,0.04), 0 8px 24px rgba(20,20,20,0.05);
+  }
+  html[data-theme="dark"]{
+    --bg: #17181C;
+    --panel: #1E1F24;
+    --panel-2: #212226;
+    --border: #2B2C32;
+    --ink: #F2F2EF;
+    --ink-dim: #8C8D94;
+    --accent: #7C8CFF;
+    --accent-ink: #15161B;
+    --cell-empty: #24252B;
+    --cell-empty-border: #33343B;
+    --cell-hover: #2B2D48;
+    --danger: #F0899B;
+    --color-mark: #FFFFFF;
+    --shadow: 0 1px 2px rgba(0,0,0,0.2), 0 12px 28px rgba(0,0,0,0.35);
+  }
+  *{ box-sizing: border-box; }
+  html,body{ margin:0; padding:0; }
+  body{
+    background: var(--bg);
+    color: var(--ink);
+    font-family: 'IBM Plex Mono', monospace;
+    min-height: 100vh;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+  h1,h2,h3{ font-family:'Space Grotesk', sans-serif; margin:0; }
+  .wrap{ max-width: 760px; margin: 0 auto; padding: 20px 18px 60px; }
+
+  /* ---------- Header ---------- */
+  header{
+    display:flex; justify-content:space-between; align-items:center;
+    padding-bottom: 16px; margin-bottom: 22px;
+    border-bottom: 1px solid var(--border);
+  }
+  .brand{ display:flex; align-items:baseline; gap:8px; cursor:pointer; }
+  .brand .mark{ color: var(--accent); font-weight:700; font-size:15px; }
+  .brand .name{ font-size: 13px; color: var(--ink-dim); letter-spacing: 0.02em; }
+
+  .theme-toggle{
+    display:flex; align-items:center; gap:8px;
+    font-size: 11px; color: var(--ink-dim);
+  }
+  .switch{
+    width: 38px; height: 22px; border-radius: 999px;
+    background: var(--border); position:relative; cursor:pointer;
+    border: 1px solid var(--border);
+    transition: background-color .15s ease;
+  }
+  .switch .knob{
+    position:absolute; top: 2px; left: 2px;
+    width: 16px; height: 16px; border-radius: 50%;
+    background: var(--panel-2);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.25);
+    transition: transform .15s ease;
+  }
+  html[data-theme="dark"] .switch{ background: var(--accent); }
+  html[data-theme="dark"] .switch .knob{ transform: translateX(16px); }
+
+  /* ---------- Screens ---------- */
+  .screen{ display:none; }
+  .screen.active{ display:block; animation: fadein .18s ease; }
+  @keyframes fadein{ from{ opacity:0; transform: translateY(4px); } to{ opacity:1; transform:none; } }
+
+  .page-head{ margin-bottom: 22px; }
+  .eyebrow{
+    font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 6px; display:block;
+  }
+  .page-title{ font-size: clamp(20px, 4vw, 26px); font-weight: 700; }
+  .page-sub{ color: var(--ink-dim); font-size: 12.5px; margin-top: 6px; line-height:1.6; max-width: 52ch; }
+
+  .back-btn{
+    background:none; border:none; color: var(--ink-dim); font-family:inherit;
+    font-size: 12px; cursor:pointer; padding: 4px 0; margin-bottom: 14px;
+    display:flex; align-items:center; gap:6px;
+  }
+  .back-btn:hover{ color: var(--ink); }
+
+  /* ---------- Home cards ---------- */
+  .mode-grid{ display:grid; grid-template-columns: 1fr; gap: 12px; }
+  .mode-card{
+    background: var(--panel-2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    cursor: pointer;
+    text-align:left;
+    display:flex; flex-direction:column; gap: 8px;
+    transition: border-color .15s ease, transform .15s ease;
+    box-shadow: var(--shadow);
+  }
+  .mode-card:hover{ border-color: var(--accent); transform: translateY(-1px); }
+  .mode-card .tag{
+    font-size: 10px; letter-spacing:0.12em; text-transform:uppercase; color: var(--accent);
+  }
+  .mode-card h3{ font-size: 17px; }
+  .mode-card p{ margin:0; font-size: 12.5px; color: var(--ink-dim); line-height:1.6; }
+
+  /* ---------- Stage list ---------- */
+  .stage-grid{ display:grid; grid-template-columns: repeat(auto-fill, minmax(150px,1fr)); gap: 12px; }
+  .stage-card{
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; cursor:pointer; text-align:left;
+    display:flex; flex-direction:column; gap:10px;
+    transition: border-color .15s ease, transform .15s ease;
+  }
+  .stage-card:hover{ border-color: var(--accent); transform: translateY(-1px); }
+  .stage-num{ font-family:'Space Grotesk',sans-serif; font-size: 20px; font-weight:700; color: var(--ink-dim); }
+  .stage-card.done .stage-num{ color: var(--accent); }
+  .stage-meta{ font-size: 11px; color: var(--ink-dim); }
+  .stage-thumb{
+    display:flex; align-items:center; justify-content:center;
+    height: 74px; background: var(--panel); border-radius: var(--radius-sm);
+  }
+  .stage-thumb-grid{ display:grid; gap:1.5px; }
+  .stage-thumb-cell{ background: var(--ink-dim); border-radius: 1px; opacity:0.55; }
+  .stage-card.done .stage-thumb-cell{ background: var(--accent); opacity:0.8; }
+  .stage-thumb-cell.colored{ background: var(--color-mark); opacity: 1; }
+  /* Higher specificity than the ".done" rule above (3 classes vs 2), so a
+     colored cell keeps showing its marker color even once the card is
+     completed — otherwise the done-state blue was painting over it. */
+  .stage-card.done .stage-thumb-cell.colored{ background: var(--color-mark); opacity: 1; }
+  .stage-formula{ font-size: 13px; color: var(--ink); font-weight:600; font-family:'Space Grotesk',sans-serif; }
+  .stage-status{
+    font-size: 10px; letter-spacing:0.08em; text-transform:uppercase;
+    padding: 3px 8px; border-radius: 999px; border:1px solid var(--border);
+    color: var(--ink-dim); width:fit-content;
+  }
+  .stage-card.done .stage-status{ color: var(--accent); border-color: var(--accent); }
+
+  /* ---------- Controls row ---------- */
+  .controls{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    margin-bottom: 18px;
+  }
+  select, button, input[type="text"], input[type="number"]{
+    font-family:'IBM Plex Mono', monospace; font-size: 12px;
+    background: var(--panel-2); color: var(--ink);
+    border: 1px solid var(--border); border-radius: var(--radius-sm);
+    padding: 8px 12px; outline:none;
+  }
+  button{ cursor:pointer; }
+  select:focus, button:focus-visible, input:focus{ border-color: var(--accent); }
+  button:hover:not(:disabled){ border-color: var(--accent); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn-primary{ background: var(--accent); color: var(--accent-ink); border-color: var(--accent); font-weight:600; }
+  .btn-primary:hover:not(:disabled){ filter: brightness(1.06); }
+  .spacer{ flex:1; }
+
+  /* ---------- Difficulty select cards (challenge setup) ---------- */
+  .diff-grid{ display:grid; grid-template-columns: repeat(auto-fit,minmax(140px,1fr)); gap:10px; margin-bottom:22px; }
+  .diff-card{
+    background: var(--panel-2); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 16px; cursor:pointer; text-align:left; display:flex; flex-direction:column; gap:6px;
+  }
+  .diff-card:hover{ border-color: var(--accent); }
+  .diff-card.selected{ border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+  .diff-card h4{ font-family:'Space Grotesk',sans-serif; font-size:15px; margin:0; }
+  .diff-card .best{ font-size: 11px; color: var(--ink-dim); }
+
+  /* ---------- Play layout ---------- */
+  .play-stats{
+    display:flex; gap: 18px; flex-wrap:wrap; margin-bottom: 14px;
+    font-size: 11.5px; color: var(--ink-dim);
+  }
+  .play-stats b{ color: var(--ink); font-weight:600; }
+  .timer{
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: 18px; color: var(--accent);
+  }
+
+  .stage{ display:flex; gap: 20px; align-items:flex-start; flex-wrap: wrap; }
+  .side-panel{ display:flex; flex-direction:column; gap:12px; min-width: 140px; }
+  .panel-box{
+    background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius);
+    padding: 12px;
+  }
+  .panel-box h4{
+    margin:0 0 10px; font-size: 10px; letter-spacing:0.1em; text-transform:uppercase;
+    color: var(--ink-dim); font-weight:500; font-family:'IBM Plex Mono',monospace;
+  }
+  .panel-box .mystery{ font-size: 12px; color: var(--ink-dim); }
+  #stageRevealPreview, #colorRevealPreview{
+    display:grid; gap: 3px; justify-content:start;
+  }
+  .preview-cell{ width: 16px; height:16px; border-radius:2px; background: var(--accent); opacity:0.9; }
+  .preview-cell.off{ background:transparent; }
+
+  .board-outer{
+    flex: 1 1 380px;
+    background: transparent;
+    padding: 20px 4px;
+    display:flex; align-items:center; justify-content:center;
+    min-height: 320px;
+    position: relative;
+    overflow:auto;
+  }
+  .board{ display:grid; gap: 2px; touch-action: none; user-select: none; }
+  .cell{ border-radius: 2px; position:relative; transition: background-color .1s ease; }
+
+  /* Creation editor: fixed-size viewport onto an unlimited canvas, panned
+     with the arrow keys (drag is reserved for selecting cells). Height is
+     fixed (not min-height) so the visible cell count stays stable, and
+     overflow is hidden — there's never a scrollbar since we only ever
+     render exactly the cells that fit. */
+  .editor-viewport{
+    height: 420px;
+    max-width: 560px;
+    margin: 0 auto;
+    overflow: hidden;
+  }
+
+  .cell.inactive{ background:transparent; }
+  .cell.active{ background: var(--cell-empty); border: 1px solid var(--cell-empty-border); cursor:pointer; }
+  .cell.active:hover{ background: var(--cell-hover); }
+  .cell.selected{ background: var(--accent) !important; box-shadow: inset 0 0 0 2px var(--panel); }
+  .cell.invalid{ animation: shake .3s ease; background: var(--danger) !important; }
+  .cell.filled{ cursor:default; }
+  .cell.filled.last-piece{ box-shadow: inset 0 0 0 2px rgba(255,255,255,0.4); }
+  .color-mark{
+    position:absolute; inset: 15%;
+    border-radius: 3px;
+    background: var(--color-mark);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-3px);} 75%{transform:translateX(3px);} }
+
+  .clear-banner{
+    position:absolute; left:50%; top:14px; transform: translateX(-50%) translateY(-8px);
+    background: var(--panel-2); border: 1px solid var(--accent); color: var(--accent);
+    font-family:'Space Grotesk',sans-serif; font-weight:700; font-size:13px;
+    padding: 8px 16px; border-radius: 999px; opacity:0; pointer-events:none;
+    transition: opacity .25s ease, transform .25s ease;
+    white-space:nowrap; box-shadow: var(--shadow);
+  }
+  .clear-banner.show{ opacity:1; transform: translateX(-50%) translateY(0); }
+
+  .reveal-box{
+    margin-top: 14px; padding: 14px 16px; background: var(--panel); border: 1px solid var(--accent);
+    border-radius: var(--radius); display:none; align-items:center; gap:14px; flex-wrap:wrap;
+  }
+  .reveal-box.show{ display:flex; }
+  .reveal-box .rtext{ font-size:12.5px; color: var(--ink-dim); }
+  .reveal-box .rtext b{ color: var(--ink); }
+
+  /* ---------- Result screen ---------- */
+  .result-hero{
+    text-align:center; padding: 30px 20px; background: var(--panel); border:1px solid var(--border);
+    border-radius: var(--radius); margin-bottom: 18px;
+  }
+  .result-hero .label{ font-size:11px; letter-spacing:0.14em; text-transform:uppercase; color:var(--ink-dim); }
+  .result-hero .time{ font-family:'Space Grotesk',sans-serif; font-weight:700; font-size: clamp(32px,8vw,48px); color: var(--accent); margin: 6px 0; }
+  .result-hero .best{ font-size:12px; color: var(--ink-dim); }
+  .splits{ display:flex; flex-direction:column; gap:6px; margin-bottom: 20px; }
+  .split-row{
+    display:flex; justify-content:space-between; padding: 8px 12px;
+    background: var(--panel-2); border:1px solid var(--border); border-radius: var(--radius-sm);
+    font-size: 12px;
+  }
+  .split-row span:first-child{ color: var(--ink-dim); }
+
+  /* ---------- Create mode ---------- */
+  .editor-cell{
+    background: var(--cell-empty); border: 1px solid var(--cell-empty-border);
+    border-radius: 2px; cursor:pointer;
+  }
+  .editor-cell.on{ background: var(--accent); border-color: var(--accent); }
+  .field-inline{ display:flex; align-items:center; gap:6px; font-size:11px; color: var(--ink-dim); }
+  .name-input{ flex: 1 1 160px; min-width: 120px; }
+  .count-input{ width: 70px; }
+  .error-text{ color: var(--danger); font-size:12px; margin-top:10px; display:none; }
+  .error-text.show{ display:block; }
+  .stage-card-row{ display:flex; align-items:flex-start; gap:8px; }
+  .stage-card-del{
+    margin-left:auto; background:none; border:none; color: var(--ink-dim);
+    font-size:14px; cursor:pointer; padding:0 2px; line-height:1;
+  }
+  .stage-card-del:hover{ color: var(--danger); }
+  .empty-hint{ color: var(--ink-dim); font-size:12.5px; padding: 20px 0; }
+
+  @media (max-width: 620px){
+    .stage{ flex-direction:column; }
+    .side-panel{ flex-direction:row; width:100%; flex-wrap:wrap; }
+    .side-panel .panel-box{ flex:1 1 130px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand" id="brandHome">
+      <span class="mark">◧</span>
+      <span class="name">Polyomino Partition Puzzle</span>
+    </div>
+    <div class="theme-toggle">
+      <span id="themeLabel">라이트</span>
+      <div class="switch" id="themeSwitch"><div class="knob"></div></div>
+    </div>
+  </header>
+
+  <main id="screens">
+
+    <!-- ===== HOME ===== -->
+    <section class="screen active" id="screen-home">
+      <div class="page-head">
+        <span class="eyebrow">Dissection Puzzle</span>
+        <div class="page-title">모드를 선택하세요</div>
+        <div class="page-sub">도형을 똑같은 모양의 폴리오미노 조각(회전·대칭 허용)으로만 빈틈없이 나누는 퍼즐입니다.</div>
+      </div>
+      <div class="mode-grid">
+        <button class="mode-card" data-goto="stageList">
+          <span class="tag">Stage</span>
+          <h3>스테이지 모드</h3>
+          <p>준비된 퍼즐들을 순서대로 풉니다. 어떤 조각으로 나눠야 하는지는 알려주지 않습니다 — 직접 추리하세요.</p>
+        </button>
+        <button class="mode-card" data-goto="challengeSetup">
+          <span class="tag">Challenge</span>
+          <h3>챌린지 모드</h3>
+          <p>난이도를 고르면 무작위 퍼즐 5개가 주어집니다. 얼마나 빠르게 전부 클리어하는지 시간을 재세요.</p>
+        </button>
+        <button class="mode-card" data-goto="freeplay">
+          <span class="tag">Free</span>
+          <h3>자유 모드</h3>
+          <p>조각 종류와 난이도를 직접 골라 원하는 만큼 무작위 퍼즐을 풀어보는 연습 모드입니다.</p>
+        </button>
+        <button class="mode-card" data-goto="createHome">
+          <span class="tag">Create</span>
+          <h3>창작 모드</h3>
+          <p>직접 도형을 그리고 몇 조각으로 나눌지 정해서 나만의 퍼즐을 만들고 저장해보세요.</p>
+        </button>
+        <button class="mode-card" data-goto="colorHome">
+          <span class="tag">Color</span>
+          <h3>컬러 모드</h3>
+          <p>전체 모양은 같지만 색칠된 칸의 위치가 달라 정답이 하나로 정해지는 문제들이에요. 조각마다 색칠된 칸이 정확히 하나씩 있어야 해요.</p>
+        </button>
+      </div>
+    </section>
+
+    <!-- ===== STAGE LIST ===== -->
+    <section class="screen" id="screen-stageList">
+      <button class="back-btn" data-goto="home">← 처음으로</button>
+      <div class="page-head">
+        <span class="eyebrow">Stage</span>
+        <div class="page-title">스테이지 선택 <span id="stageProgress" style="color:var(--ink-dim); font-weight:400; font-size:0.6em;"></span></div>
+        <div class="page-sub">칸을 채워보며 어떤 조각 하나로 이 도형이 나뉘는지 추리해 보세요.</div>
+      </div>
+      <div class="stage-grid" id="stageGrid"></div>
+    </section>
+
+    <!-- ===== STAGE PLAY ===== -->
+    <section class="screen" id="screen-stagePlay">
+      <button class="back-btn" id="stagePlayBackBtn" data-goto="stageList">← 스테이지 목록</button>
+      <div class="page-head">
+        <span class="eyebrow" id="stagePlayEyebrow">Stage 1</span>
+        <div class="page-title" id="stagePlayTitle">이 도형을 똑같은 모양의 조각으로 나눠보세요</div>
+      </div>
+
+      <div class="controls">
+        <button id="stageClearSelBtn" disabled>선택 해제</button>
+        <button id="stageUndoBtn" disabled>실행 취소</button>
+        <button id="stageResetBtn">초기화</button>
+      </div>
+
+      <div class="stage">
+        <div class="side-panel">
+          <div class="panel-box">
+            <h4>퍼즐 정보</h4>
+            <div class="play-stats" style="flex-direction:column; gap:8px;">
+              <div class="stage-formula" id="stageFormula">— × —</div>
+              <div>조각당 칸 수 × 조각 개수</div>
+              <div>총 칸 수 <b id="stageTotalCells">—</b></div>
+              <div>채운 조각 <b id="stagePlaced">0</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="board-outer">
+          <div class="board" id="boardStage"></div>
+          <div class="clear-banner" id="stageBanner">STAGE CLEAR</div>
+        </div>
+      </div>
+
+      <div class="reveal-box" id="stageReveal">
+        <div id="stageRevealPreview"></div>
+        <div class="rtext">이 도형은 <b id="stageRevealFormula">—</b> 조각으로 나뉩니다</div>
+        <div class="spacer"></div>
+        <button class="btn-primary" id="stageNextBtn">다음 스테이지</button>
+      </div>
+    </section>
+
+    <!-- ===== CHALLENGE SETUP ===== -->
+    <section class="screen" id="screen-challengeSetup">
+      <button class="back-btn" data-goto="home">← 처음으로</button>
+      <div class="page-head">
+        <span class="eyebrow">Challenge</span>
+        <div class="page-title">난이도 선택</div>
+        <div class="page-sub">선택한 난이도로 무작위 퍼즐 5개를 얼마나 빠르게 푸는지 측정합니다.</div>
+      </div>
+      <div class="diff-grid" id="challengeDiffGrid"></div>
+      <button class="btn-primary" id="challengeStartBtn">시작</button>
+    </section>
+
+    <!-- ===== CHALLENGE PLAY ===== -->
+    <section class="screen" id="screen-challengePlay">
+      <div class="page-head">
+        <span class="eyebrow" id="challengeRoundLabel">ROUND 1 / 5</span>
+        <div class="page-title">가능한 한 빠르게 채우세요</div>
+      </div>
+
+      <div class="play-stats">
+        <div>경과 시간 <span class="timer" id="challengeTimer">00:00.0</span></div>
+        <div class="spacer"></div>
+        <button id="challengeQuitBtn">그만두기</button>
+      </div>
+
+      <div class="controls">
+        <button id="challengeClearSelBtn" disabled>선택 해제</button>
+        <button id="challengeUndoBtn" disabled>실행 취소</button>
+        <button id="challengeResetBtn">초기화</button>
+      </div>
+
+      <div class="stage">
+        <div class="side-panel">
+          <div class="panel-box">
+            <h4>퍼즐 정보</h4>
+            <div class="play-stats" style="flex-direction:column; gap:8px;">
+              <div class="stage-formula" id="challengeFormula">— × —</div>
+              <div>조각당 칸 수 × 조각 개수</div>
+              <div>채운 조각 <b id="challengePlaced">0 / 0</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="board-outer">
+          <div class="board" id="boardChallenge"></div>
+          <div class="clear-banner" id="challengeBanner">CLEAR</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CHALLENGE RESULT ===== -->
+    <section class="screen" id="screen-challengeResult">
+      <div class="page-head">
+        <span class="eyebrow">Challenge · Result</span>
+        <div class="page-title">완료했습니다</div>
+      </div>
+      <div class="result-hero">
+        <div class="label">Total Time</div>
+        <div class="time" id="resultTotalTime">00:00.0</div>
+        <div class="best" id="resultBest">—</div>
+      </div>
+      <div class="splits" id="resultSplits"></div>
+      <div class="controls">
+        <button class="btn-primary" id="resultRetryBtn">다시 도전</button>
+        <button data-goto="home">처음으로</button>
+      </div>
+    </section>
+
+    <!-- ===== FREEPLAY ===== -->
+    <section class="screen" id="screen-freeplay">
+      <button class="back-btn" data-goto="home">← 처음으로</button>
+      <div class="page-head">
+        <span class="eyebrow">Free</span>
+        <div class="page-title">자유 모드</div>
+        <div class="page-sub">난이도를 골라 원하는 만큼 무작위 퍼즐을 연습하세요. 조각 모양은 스테이지처럼 스스로 추리해야 해요.</div>
+      </div>
+
+      <div class="controls">
+        <select id="freeDiffSelect">
+          <option value="easy">쉬움 · 테트로미노</option>
+          <option value="normal" selected>보통 · 펜토미노</option>
+          <option value="hard">어려움 · 헥소미노</option>
+        </select>
+        <div class="spacer"></div>
+        <button id="freeClearSelBtn" disabled>선택 해제</button>
+        <button id="freeUndoBtn" disabled>실행 취소</button>
+        <button id="freeResetBtn">초기화</button>
+        <button class="btn-primary" id="freeNewBtn">새 퍼즐</button>
+      </div>
+
+      <div class="stage">
+        <div class="side-panel">
+          <div class="panel-box">
+            <h4>퍼즐 정보</h4>
+            <div class="play-stats" style="flex-direction:column; gap:8px;">
+              <div class="stage-formula" id="freeFormula">— × —</div>
+              <div>조각당 칸 수 × 조각 개수</div>
+              <div>채운 조각 <b id="freePlaced">0 / 0</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="board-outer">
+          <div class="board" id="boardFree"></div>
+          <div class="clear-banner" id="freeBanner">CLEAR</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ===== CREATE HOME (list of saved puzzles) ===== -->
+    <section class="screen" id="screen-createHome">
+      <button class="back-btn" data-goto="home">← 처음으로</button>
+      <div class="page-head">
+        <span class="eyebrow">Create</span>
+        <div class="page-title">창작 모드</div>
+        <div class="page-sub">직접 만든 퍼즐을 저장하고 다시 풀어볼 수 있어요. 이 브라우저 탭을 새로고침하면 초기화돼요.</div>
+      </div>
+      <div class="controls">
+        <button class="btn-primary" id="createNewBtn">새 퍼즐 만들기</button>
+      </div>
+      <div class="stage-grid" id="customGrid"></div>
+    </section>
+
+    <!-- ===== CREATE EDITOR ===== -->
+    <section class="screen" id="screen-createEditor">
+      <button class="back-btn" data-goto="createHome">← 창작 목록</button>
+      <div class="page-head">
+        <span class="eyebrow">Create</span>
+        <div class="page-title">퍼즐 만들기</div>
+        <div class="page-sub">방향키(←↑↓→)로 격자를 움직이고, 칸을 드래그해서 조각을 그려보세요. 격자는 크기 제한이 없고, 저장할 때 실제로 칠한 부분만 잘려서 저장돼요. 첫 조각을 원하는 모양으로 그리면, 이후 조각들은 그것과 합동(회전·대칭 허용)이어야 하고 기존 도형과 맞닿아 있어야 해요.</div>
+      </div>
+
+      <div class="controls">
+        <button id="editorUndoBtn" disabled>실행 취소</button>
+        <button id="editorClearBtn">모두 지우기</button>
+      </div>
+
+      <div class="panel-box" style="margin-bottom:16px; max-width:260px;">
+        <h4>현재 도형</h4>
+        <div class="play-stats" style="flex-direction:column; gap:8px;">
+          <div class="stage-formula" id="editorFormula">0 × 0</div>
+          <div>조각당 칸 수 × 조각 개수</div>
+        </div>
+      </div>
+
+      <div class="board-outer editor-viewport" id="editorBoardOuter">
+        <div class="board" id="boardEditor"></div>
+      </div>
+
+      <div class="controls" style="margin-top:18px;">
+        <input type="text" id="editorNameInput" class="name-input" placeholder="퍼즐 이름" maxlength="24">
+        <div class="spacer"></div>
+        <button class="btn-primary" id="editorSaveBtn">저장</button>
+      </div>
+      <div class="error-text" id="editorError"></div>
+    </section>
+
+    <!-- ===== COLOR HOME (big stage list) ===== -->
+    <section class="screen" id="screen-colorHome">
+      <button class="back-btn" data-goto="home">← 처음으로</button>
+      <div class="page-head">
+        <span class="eyebrow">Color</span>
+        <div class="page-title">컬러 모드 <span id="colorBigProgress" style="color:var(--ink-dim); font-weight:400; font-size:0.6em;"></span></div>
+        <div class="page-sub">전체 모양은 같지만 색칠된 칸의 위치가 다른 문제들이 큰 스테이지 하나에 여러 개 묶여 있어요. 조각마다 색칠된 칸이 정확히 하나씩 있어야 해요.</div>
+      </div>
+      <div class="stage-grid" id="colorBigGrid"></div>
+    </section>
+
+    <!-- ===== COLOR SMALL LIST ===== -->
+    <section class="screen" id="screen-colorSmallList">
+      <button class="back-btn" data-goto="colorHome">← 컬러 모드</button>
+      <div class="page-head">
+        <span class="eyebrow" id="colorSmallEyebrow">큰 스테이지 1</span>
+        <div class="page-title">문제 선택</div>
+        <div class="page-sub">모두 같은 도형이지만, 색칠된 칸 위치가 달라서 정답이 서로 달라요.</div>
+      </div>
+      <div class="stage-grid" id="colorSmallGrid"></div>
+    </section>
+
+    <!-- ===== COLOR PLAY ===== -->
+    <section class="screen" id="screen-colorPlay">
+      <button class="back-btn" id="colorPlayBackBtn" data-goto="colorSmallList">← 문제 목록</button>
+      <div class="page-head">
+        <span class="eyebrow" id="colorPlayEyebrow">1-1</span>
+        <div class="page-title">조각마다 색칠된 칸이 하나씩 있어야 해요</div>
+      </div>
+
+      <div class="controls">
+        <button id="colorClearSelBtn" disabled>선택 해제</button>
+        <button id="colorUndoBtn" disabled>실행 취소</button>
+        <button id="colorResetBtn">초기화</button>
+      </div>
+
+      <div class="stage">
+        <div class="side-panel">
+          <div class="panel-box">
+            <h4>퍼즐 정보</h4>
+            <div class="play-stats" style="flex-direction:column; gap:8px;">
+              <div class="stage-formula" id="colorFormula">— × —</div>
+              <div>조각당 칸 수 × 조각 개수</div>
+              <div>채운 조각 <b id="colorPlaced">0</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="board-outer">
+          <div class="board" id="boardColor"></div>
+          <div class="clear-banner" id="colorBanner">CLEAR</div>
+        </div>
+      </div>
+
+      <div class="reveal-box" id="colorReveal">
+        <div id="colorRevealPreview"></div>
+        <div class="rtext">이 도형은 <b id="colorRevealFormula">—</b> 조각으로 나뉩니다</div>
+        <div class="spacer"></div>
+        <button class="btn-primary" id="colorNextBtn">다음 문제</button>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  /* =====================================================================
+     GEOMETRY CORE
+  ===================================================================== */
+  function normalize(cells){
+    const minx = Math.min(...cells.map(c=>c[0]));
+    const miny = Math.min(...cells.map(c=>c[1]));
+    return cells.map(([x,y])=>[x-minx,y-miny]).sort((a,b)=> a[0]-b[0] || a[1]-b[1]);
+  }
+  function keyOf(cells){ return cells.map(c=>c.join(',')).join('|'); }
+
+  function getOrientations(shape){
+    const seen = new Set();
+    const variants = [];
+    for(let f=0; f<2; f++){
+      let base = f ? shape.map(([x,y])=>[-x,y]) : shape;
+      let cur = base;
+      for(let r=0;r<4;r++){
+        const norm = normalize(cur);
+        const k = keyOf(norm);
+        if(!seen.has(k)){ seen.add(k); variants.push(norm); }
+        cur = cur.map(([x,y])=>[y,-x]);
+      }
+    }
+    return variants;
+  }
+
+  function isConnected(cells){
+    const set = new Set(cells.map(c=>c.join(',')));
+    const start = cells[0];
+    const visited = new Set([start.join(',')]);
+    const stack = [start];
+    while(stack.length){
+      const [x,y] = stack.pop();
+      for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+        const k = (x+dx)+','+(y+dy);
+        if(set.has(k) && !visited.has(k)){ visited.add(k); stack.push([x+dx,y+dy]); }
+      }
+    }
+    return visited.size === set.size;
+  }
+
+  function shuffle(arr){
+    for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    return arr;
+  }
+
+  // For each piece, count how many unit edges it shares with cells that
+  // belong to OTHER pieces. A piece with exactly one such shared edge is
+  // too easy to spot (only one border to reason about), so puzzles with
+  // any such piece get rejected and regenerated.
+  function pieceBoundaryEdgeCounts(pieces){
+    const owner = new Map();
+    pieces.forEach((cells, idx)=>{
+      cells.forEach(([x,y])=> owner.set(x+','+y, idx));
+    });
+    const counts = new Array(pieces.length).fill(0);
+    pieces.forEach((cells, idx)=>{
+      cells.forEach(([x,y])=>{
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const nk = (x+dx)+','+(y+dy);
+          if(owner.has(nk) && owner.get(nk) !== idx) counts[idx]++;
+        }
+      });
+    });
+    return counts;
+  }
+  function hasSingleEdgePiece(pieces){
+    return pieceBoundaryEdgeCounts(pieces).some(c => c === 1);
+  }
+
+  function generateRegionOnce(orientations, count){
+    const occupied = new Set();
+    const pieces = [];
+    let sumX = 0, sumY = 0, n = 0;
+    function place(cells){
+      for(const c of cells){ occupied.add(c[0]+','+c[1]); sumX += c[0]; sumY += c[1]; n++; }
+      pieces.push(cells);
+    }
+    const ori0 = orientations[Math.floor(Math.random()*orientations.length)];
+    place(ori0.map(([x,y])=>[x,y]));
+    let attempts=0;
+    while(pieces.length < count && attempts < count*300){
+      attempts++;
+      const frontier = [];
+      for(const key of occupied){
+        const [x,y] = key.split(',').map(Number);
+        for(const [dx,dy] of [[1,0],[-1,0],[0,1],[0,-1]]){
+          const nx=x+dx, ny=y+dy, nk=nx+','+ny;
+          if(!occupied.has(nk)) frontier.push([nx,ny]);
+        }
+      }
+      if(frontier.length===0) break;
+      // Bias growth toward the region's own centroid, not a uniformly random
+      // frontier cell, so puzzles cluster into a round-ish blob instead of
+      // wandering off into a long thin snake.
+      const cx = sumX/n, cy = sumY/n;
+      frontier.sort((a,b)=>{
+        const da = (a[0]-cx)**2 + (a[1]-cy)**2;
+        const db = (b[0]-cx)**2 + (b[1]-cy)**2;
+        return da-db;
+      });
+      const poolSize = Math.max(1, Math.ceil(frontier.length*0.4));
+      const [fx,fy] = frontier[Math.floor(Math.random()*poolSize)];
+      const ori = orientations[Math.floor(Math.random()*orientations.length)];
+      const idxs = shuffle([...ori.keys()]);
+      for(const ci of idxs){
+        const [cx2,cy2] = ori[ci];
+        const ax = fx-cx2, ay = fy-cy2;
+        const cells = ori.map(([x,y])=>[x+ax,y+ay]);
+        if(cells.every(([x,y])=>!occupied.has(x+','+y))){
+          place(cells);
+          break;
+        }
+      }
+    }
+    return { pieces, occupied, orientations };
+  }
+
+  // How stretched a region's bounding box is: 1.0 is a perfect square,
+  // higher values mean a longer/thinner shape.
+  function elongation(occupied){
+    const cells = [...occupied].map(k=>k.split(',').map(Number));
+    const minx=Math.min(...cells.map(c=>c[0])), maxx=Math.max(...cells.map(c=>c[0]));
+    const miny=Math.min(...cells.map(c=>c[1])), maxy=Math.max(...cells.map(c=>c[1]));
+    const w=maxx-minx+1, h=maxy-miny+1;
+    return Math.max(w,h)/Math.min(w,h);
+  }
+
+  function generateRegion(shape, count){
+    const orientations = getOrientations(shape);
+    const maxOuterAttempts = 50;
+    let fallback = null;
+    let best = null, bestScore = Infinity;
+    for(let outer=0; outer<maxOuterAttempts; outer++){
+      const result = generateRegionOnce(orientations, count);
+      if(result.pieces.length !== count) continue; // failed to fully tile, retry
+      if(hasSingleEdgePiece(result.pieces)){
+        if(!fallback) fallback = result; // keep as a last-resort in case every retry fails
+        continue;
+      }
+      const score = elongation(result.occupied);
+      if(score < bestScore){ bestScore = score; best = result; }
+      if(bestScore <= 1.3) break; // compact enough — no need to keep searching
+    }
+    return best || fallback || generateRegionOnce(orientations, count);
+  }
+
+  const TRIOMINOES = [
+    [[0,0],[1,0],[2,0]],
+    [[0,0],[1,0],[0,1]]
+  ];
+
+  const TETROMINOES = [
+    [[0,0],[1,0],[2,0],[3,0]],
+    [[0,0],[0,1],[1,0],[2,0]],
+    [[0,0],[1,0],[1,1],[2,0]],
+    [[0,0],[0,1],[1,0],[1,1]],
+    [[0,1],[1,0],[1,1],[2,0]]
+  ];
+
+  const PENTOMINOES = [
+    [[0,0],[1,0],[2,0],[3,0],[4,0]],
+    [[0,0],[0,1],[1,0],[2,0],[3,0]],
+    [[0,0],[1,0],[1,1],[2,0],[3,0]],
+    [[0,0],[0,1],[0,2],[1,1],[2,1]],
+    [[0,0],[0,1],[1,0],[1,1],[2,0]],
+    [[0,1],[1,0],[1,1],[2,0],[3,0]],
+    [[0,0],[0,1],[0,2],[1,0],[2,0]],
+    [[0,1],[0,2],[1,0],[1,1],[2,1]],
+    [[0,0],[0,1],[1,0],[2,0],[2,1]],
+    [[0,1],[0,2],[1,1],[2,0],[2,1]],
+    [[0,1],[1,0],[1,1],[1,2],[2,1]],
+    [[0,1],[0,2],[1,0],[1,1],[2,0]]
+  ];
+
+  const HEXOMINOES = [
+    [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0]],
+    [[0,0],[0,1],[1,0],[2,0],[3,0],[4,0]],
+    [[0,0],[1,0],[1,1],[2,0],[3,0],[4,0]],
+    [[0,0],[1,0],[2,0],[2,1],[3,0],[4,0]],
+    [[0,0],[0,1],[0,2],[1,1],[2,1],[3,1]],
+    [[0,0],[0,1],[1,0],[1,1],[2,0],[3,0]],
+    [[0,1],[1,0],[1,1],[2,0],[3,0],[4,0]],
+    [[0,0],[0,1],[0,2],[1,0],[2,0],[3,0]],
+    [[0,1],[0,2],[1,0],[1,1],[2,1],[3,1]],
+    [[0,0],[0,1],[1,0],[2,0],[2,1],[3,0]],
+    [[0,1],[0,2],[1,1],[2,0],[2,1],[3,1]],
+    [[0,0],[0,1],[1,0],[2,0],[3,0],[3,1]],
+    [[0,1],[0,2],[1,1],[2,1],[3,0],[3,1]],
+    [[0,1],[1,0],[1,1],[1,2],[2,1],[3,1]],
+    [[0,0],[1,0],[1,1],[2,0],[2,1],[3,0]],
+    [[0,0],[1,0],[1,1],[1,2],[2,0],[3,0]],
+    [[0,1],[1,1],[1,2],[2,0],[2,1],[3,1]],
+    [[0,0],[0,1],[0,2],[1,0],[1,1],[2,1]],
+    [[0,0],[1,0],[1,1],[1,2],[2,1],[3,1]],
+    [[0,0],[0,1],[0,2],[1,1],[2,1],[2,2]],
+    [[0,1],[1,0],[1,1],[2,0],[2,1],[3,0]],
+    [[0,0],[0,1],[0,2],[1,0],[1,1],[2,0]],
+    [[0,1],[0,2],[1,0],[1,1],[1,2],[2,1]],
+    [[0,0],[0,1],[1,0],[1,1],[2,0],[2,1]],
+    [[0,1],[0,2],[1,1],[1,2],[2,0],[2,1]],
+    [[0,1],[1,1],[2,0],[2,1],[3,0],[4,0]],
+    [[0,1],[0,2],[1,0],[1,1],[2,0],[3,0]],
+    [[0,1],[1,0],[1,1],[1,2],[2,0],[3,0]],
+    [[0,2],[1,1],[1,2],[2,0],[2,1],[3,1]],
+    [[0,1],[1,0],[1,1],[2,0],[3,0],[3,1]],
+    [[0,2],[1,1],[1,2],[2,1],[3,0],[3,1]],
+    [[0,0],[0,1],[0,2],[1,0],[1,2],[2,0]],
+    [[0,2],[1,0],[1,1],[1,2],[2,0],[3,0]],
+    [[0,1],[0,2],[1,0],[1,1],[2,1],[2,2]],
+    [[0,2],[1,1],[1,2],[2,0],[2,1],[3,0]]
+  ];
+
+  const PIECE_COLORS = ['#FF7A59','#FFB238','#3DBE7C','#5C7CFA','#22B8CF','#D46FD1','#E0A63E','#4FAAC9','#9C6ADE','#63C29A'];
+
+  // Difficulty tiers used by Challenge and Free modes: each tier defines a
+  // pool of allowed piece sizes (with their shape sets) and a target range
+  // for the TOTAL number of cells (piece size × piece count). Every round,
+  // a piece size is picked at random from the tier's pool, a shape of that
+  // size is picked at random, and a total-cell target is picked within the
+  // range — the piece count then follows from total ÷ size. This means the
+  // per-piece cell count is no longer fixed per difficulty; only the total
+  // puzzle size range is.
+  const DIFFICULTIES = [
+    { id:'easy',   label:'쉬움',   hint:'트리오미노~테트로미노 · 총 15~30칸',
+      sizePools:{ 3: TRIOMINOES, 4: TETROMINOES }, totalRange:[15,30] },
+    { id:'normal', label:'보통',   hint:'테트로미노~펜토미노 · 총 25~50칸',
+      sizePools:{ 4: TETROMINOES, 5: PENTOMINOES }, totalRange:[25,50] },
+    { id:'hard',   label:'어려움', hint:'테트로미노~헥소미노 · 총 35~70칸',
+      sizePools:{ 4: TETROMINOES, 5: PENTOMINOES, 6: HEXOMINOES }, totalRange:[35,70] },
+  ];
+
+  /* =====================================================================
+     STAGE DATA (extracted from provided puzzle images)
+     Each stage gives only the region shape and how many pieces (dots) it
+     must be split into — the piece shape itself is never told to the
+     player, and pieceSize is simply region.length / pieceCount.
+  ===================================================================== */
+  const STAGES = [
+    { pieceCount: 4, completed:false, region: [[0,0],[1,0],[0,1],[1,1],[0,2],[1,2],[2,2],[3,2],[0,3],[1,3],[2,3],[3,3]] },
+    { pieceCount: 4, completed:false, region: [[2,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[3,2],[4,2],[0,3],[1,3],[2,3],[3,3],[4,3],[2,4]] },
+    { pieceCount: 3, completed:false, region: [[0,0],[1,0],[2,0],[0,1],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[0,3],[1,3],[2,3],[3,3]] },
+    { pieceCount: 4, completed:false, region: [[3,0],[3,1],[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[3,5]] },
+    { pieceCount: 4, completed:false, region: [[0,0],[6,0],[0,1],[6,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[0,3],[1,3],[2,3],[4,3],[5,3],[6,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4]] },
+    { pieceCount: 8, completed:false, region: [[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[0,2],[3,2],[4,2],[7,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[2,5],[3,5],[4,5],[5,5],[2,6],[5,6]] },
+    { pieceCount: 8, completed:false, region: [[4,0],[1,1],[2,1],[4,1],[5,1],[6,1],[1,2],[2,2],[4,2],[5,2],[6,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[4,4],[5,4],[6,4],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[0,6],[1,6],[2,6],[4,6],[5,6],[0,7],[1,7],[2,7],[4,7],[5,7],[2,8]] },
+    { pieceCount: 5, completed:false, region: [[1,0],[2,0],[1,1],[2,1],[3,1],[4,1],[5,1],[0,2],[1,2],[3,2],[4,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[3,5],[4,5]] },
+    { pieceCount: 3, completed:false, region: [[0,0],[2,0],[0,1],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[0,3],[1,3],[2,3],[3,3],[0,4],[1,4],[2,4],[0,5]] },
+    { pieceCount: 7, completed:false, region: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[1,2],[2,2],[5,2],[6,2],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5]] },
+    { pieceCount: 3, completed:false, region: [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[1,3],[2,3],[3,3],[2,4]] },
+    { pieceCount: 6, completed:false, region: [[3,0],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[1,6],[2,6],[3,6],[4,6]] },
+    { pieceCount: 6, completed:false, region: [[3,0],[3,1],[4,1],[2,2],[3,2],[4,2],[5,2],[6,2],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[1,4],[2,4],[3,4],[5,4],[6,4],[7,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[2,6],[3,6],[4,6],[5,6],[6,6],[4,7],[5,7],[5,8]] },
+    { pieceCount: 5, completed:false, region: [[3,0],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3],[4,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[1,6],[2,6],[3,6],[4,6],[2,7],[3,7]] },
+    { pieceCount: 8, completed:false, region: [[0,0],[1,0],[2,0],[5,0],[6,0],[7,0],[0,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[0,2],[1,2],[2,2],[3,2],[4,2],[6,2],[7,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[0,4],[1,4],[3,4],[4,4],[5,4],[6,4],[7,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[7,5],[0,6],[1,6],[2,6],[5,6],[6,6],[7,6]] },
+    { pieceCount: 5, completed:false, region: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[0,1],[1,1],[2,1],[4,1],[5,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5]] },
+    { pieceCount: 5, completed:false, region: [[1,0],[0,1],[1,1],[2,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[2,3],[3,3],[4,3],[0,4],[1,4],[2,4],[3,4],[4,4],[0,5],[1,5],[2,5],[3,5],[4,5]] },
+    { pieceCount: 6, completed:false, region: [[1,0],[3,0],[6,0],[0,1],[1,1],[2,1],[3,1],[4,1],[6,1],[7,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[0,4],[1,4],[3,4],[4,4],[5,4],[6,4],[7,4],[1,5],[4,5],[6,5]] },
+    { pieceCount: 6, completed:false, region: [[3,0],[3,1],[4,1],[2,2],[3,2],[4,2],[2,3],[3,3],[4,3],[1,4],[2,4],[4,4],[5,4],[1,5],[2,5],[3,5],[4,5],[5,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[1,7],[2,7],[3,7],[4,7],[5,7]] },
+    { pieceCount: 3, completed:false, region: [[2,0],[3,0],[4,0],[1,1],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[2,3],[3,3],[4,3],[2,4],[3,4]] },
+    { pieceCount: 4, completed:false, region: [[1,0],[2,0],[4,0],[1,1],[2,1],[3,1],[4,1],[5,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[2,5],[3,5],[4,5]] },
+    { pieceCount: 5, completed:false, region: [[3,0],[4,0],[5,0],[1,1],[2,1],[3,1],[5,1],[6,1],[1,2],[2,2],[3,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[0,5],[1,5],[2,5],[3,5],[4,5],[2,6]] },
+    { pieceCount: 5, completed:false, region: [[2,0],[3,0],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5]] },
+    { pieceCount: 5, completed:false, region: [[2,0],[1,1],[2,1],[3,1],[4,1],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[1,5],[2,5],[3,5],[4,5],[5,5],[3,6],[5,6]] },
+    { pieceCount: 5, completed:false, region: [[2,0],[3,0],[4,0],[5,0],[2,1],[3,1],[4,1],[5,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4]] },
+    { pieceCount: 7, completed:false, region: [[4,0],[5,0],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[9,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3],[9,3],[1,4],[2,4],[4,4],[5,4],[7,4],[8,4],[1,5],[2,5],[3,5],[4,5],[5,5],[6,5],[7,5],[8,5]] },
+    { pieceCount: 5, completed:false, region: [[0,0],[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[0,2],[3,2],[0,3],[3,3],[0,4],[3,4],[0,5],[3,5],[0,6],[1,6],[2,6],[3,6],[0,7],[3,7],[0,8],[1,8],[2,8],[3,8],[0,9],[1,9],[2,9],[3,9]] },
+    { pieceCount: 7, completed:false, region: [[4,0],[3,1],[4,1],[5,1],[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[0,4],[1,4],[2,4],[3,4],[5,4],[6,4],[7,4],[8,4],[0,5],[1,5],[2,5],[3,5],[5,5],[6,5],[7,5],[8,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[2,7],[4,7],[6,7]] },
+    { pieceCount: 5, completed:false, region: [[2,0],[3,0],[4,0],[5,0],[6,0],[7,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[0,2],[2,2],[3,2],[5,2],[6,2],[7,2],[8,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[7,3],[8,3]] },
+    { pieceCount: 12, completed:false, region: [[6,0],[3,1],[4,1],[5,1],[6,1],[3,2],[4,2],[5,2],[6,2],[4,3],[5,3],[6,3],[10,3],[11,3],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[10,4],[11,4],[4,5],[5,5],[6,5],[7,5],[8,5],[9,5],[10,5],[11,5],[0,6],[1,6],[2,6],[3,6],[4,6],[5,6],[7,6],[8,6],[9,6],[10,6],[11,6],[12,6],[1,7],[2,7],[3,7],[4,7],[5,7],[6,7],[7,7],[8,7],[1,8],[2,8],[3,8],[4,8],[5,8],[6,8],[7,8],[8,8],[1,9],[2,9],[6,9],[7,9],[8,9],[6,10],[7,10],[8,10],[9,10],[6,11],[7,11],[8,11],[9,11],[6,12]] },
+  
+    { pieceCount: 4, completed:false, region: [[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[7,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[2,4],[3,4],[4,4],[5,4]] },
+    { pieceCount: 7, completed:false, region: [[4,0],[4,1],[2,2],[3,2],[4,2],[5,2],[6,2],[2,3],[3,3],[4,3],[5,3],[6,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[8,4],[2,5],[4,5],[5,5],[6,5],[2,6],[3,6],[4,6],[5,6],[6,6],[2,7],[3,7],[4,7],[5,7],[6,7],[2,8],[3,8],[4,8],[5,8],[6,8],[4,9],[4,10]] },
+    { pieceCount: 6, completed:false, region: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[0,1],[5,1],[0,2],[1,2],[4,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5]] },
+    { pieceCount: 5, completed:false, region: [[1,0],[2,0],[3,0],[0,1],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[2,3],[4,3],[0,4],[1,4],[2,4],[3,4],[4,4],[1,5],[2,5],[3,5]] },
+    { pieceCount: 9, completed:false, region: [[7,0],[1,1],[2,1],[4,1],[5,1],[6,1],[7,1],[8,1],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[7,2],[8,2],[1,3],[2,3],[3,3],[5,3],[7,3],[8,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[7,4],[8,4],[9,4],[1,5],[2,5],[4,5],[6,5],[7,5],[8,5],[1,6],[2,6],[3,6],[4,6],[5,6],[6,6],[7,6],[8,6],[1,7],[2,7],[3,7],[4,7],[5,7],[7,7],[8,7],[2,8]] },
+    { pieceCount: 4, completed:false, region: [[2,0],[0,1],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[0,3],[1,3],[2,3],[3,3],[4,3],[5,3],[6,3],[1,4],[2,4],[3,4],[4,4],[5,4],[1,5],[2,5],[3,5],[4,5],[5,5]] },
+    { pieceCount: 3, completed:false, region: [[1,0],[2,0],[3,0],[4,0],[1,1],[2,1],[3,1],[4,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[2,3],[3,3],[2,4],[3,4]] },
+    { pieceCount: 3, completed:false, region: [[0,0],[1,0],[2,0],[3,0],[4,0],[5,0],[0,1],[2,1],[3,1],[5,1],[6,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[1,3],[2,3],[3,3],[4,3]] },
+    { pieceCount: 6, completed:false, region: [[1,0],[2,0],[4,0],[1,1],[2,1],[3,1],[4,1],[5,1],[6,1],[0,2],[1,2],[2,2],[3,2],[4,2],[5,2],[6,2],[1,3],[2,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4],[4,4],[5,4],[6,4],[0,5],[1,5],[2,5],[3,5],[4,5],[5,5],[2,6],[4,6],[5,6]] },
+    { pieceCount: 4, completed:false, region: [[1,0],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3],[1,4],[2,4],[3,4],[0,5],[1,5],[2,5],[3,5],[4,5],[1,6],[2,6],[3,6],[3,7]] },
+  ];
+
+  const customStages = []; // { name, pieceCount, region, completed }
+
+  /* =====================================================================
+     COLOR MODE DATA
+     Each big stage groups several small stages that all share the exact
+     same overall shape — only the placement of "colored" cells differs.
+     A dissection is only accepted if every piece contains exactly one
+     colored cell, which is what pins the answer down to (usually) one
+     specific solution even though the bare shape alone might allow more.
+     Text format per row: 0 = empty, 1 = filled, 2 = filled + colored.
+     Rows are separated by ';'.
+  ===================================================================== */
+  const COLOR_STAGES = [
+    { smalls: [
+      '2222;1111;1111;1111',
+      '1211;1111;1221;1121',
+      '2211;1112;1211;1111',
+    ]},
+    { smalls: [
+      '001100;001100;112211;111121;001200;001100',
+      '001100;001200;211111;112111;001100;001200',
+      '001100;001200;112111;121111;001100;002100',
+    ]},
+    { smalls: [
+      '000110;111210;111110;012122;011111;011000',
+      '000120;112110;112110;011112;011111;011000',
+      '000110;111120;111120;022111;011111;011000',
+      '000110;111110;211120;011121;012111;011000',
+      '000110;112110;211210;011111;011112;011000',
+      '000110;111120;111120;012211;011111;011000',
+      '000110;121110;121110;011211;011111;021000',
+      '000110;121110;111110;012211;011112;011000',
+      '000110;211110;111110;021211;011111;012000',
+    ]},
+  ];
+
+  function parseColorGrid(text){
+    const rows = text.split(';');
+    const region = [];
+    const coloredCells = [];
+    rows.forEach((row, y)=>{
+      for(let x=0; x<row.length; x++){
+        const ch = row[x];
+        if(ch === '1' || ch === '2') region.push([x,y]);
+        if(ch === '2') coloredCells.push([x,y]);
+      }
+    });
+    return { region, coloredCells };
+  }
+
+  COLOR_STAGES.forEach(big=>{
+    big.parsed = big.smalls.map(text=>{
+      const { region, coloredCells } = parseColorGrid(text);
+      return { region, coloredCells, completed:false };
+    });
+  });
+
+  function renderColorThumbnail(el, region, coloredCells, maxPx){
+    const minx = Math.min(...region.map(c=>c[0]));
+    const miny = Math.min(...region.map(c=>c[1]));
+    const norm = normalize(region);
+    const coloredSet = new Set(coloredCells.map(c=>(c[0]-minx)+','+(c[1]-miny)));
+    const cols = Math.max(...norm.map(c=>c[0])) + 1;
+    const rows = Math.max(...norm.map(c=>c[1])) + 1;
+    const px = Math.max(4, Math.min(12, Math.floor((maxPx - (Math.max(cols,rows)-1)*1.5) / Math.max(cols,rows))));
+    const wrap = document.createElement('div');
+    wrap.className = 'stage-thumb-grid';
+    wrap.style.gridTemplateColumns = `repeat(${cols}, ${px}px)`;
+    wrap.style.gridTemplateRows = `repeat(${rows}, ${px}px)`;
+    const set = new Set(norm.map(c=>c.join(',')));
+    for(let y=0;y<rows;y++){
+      for(let x=0;x<cols;x++){
+        const d = document.createElement('div');
+        const key = x+','+y;
+        if(set.has(key)) d.className = 'stage-thumb-cell' + (coloredSet.has(key) ? ' colored' : '');
+        wrap.appendChild(d);
+      }
+    }
+    el.innerHTML = '';
+    el.appendChild(wrap);
+  }
+
+  /* =====================================================================
+     PUZZLE BOARD ENGINE (reused by stage / challenge / free modes)
+  ===================================================================== */
+  class PuzzleBoard {
+    constructor(boardEl, opts){
+      this.boardEl = boardEl;
+      this.onChange = (opts && opts.onChange) || function(){};
+      this.onWin = (opts && opts.onWin) || function(){};
+      this.dragging = false;
+      this.dragMode = null;
+      this.boardEl.style.touchAction = 'none';
+      this.boardEl.addEventListener('pointerdown', e=> this.onPointerDown(e));
+      this.boardEl.addEventListener('pointermove', e=> this.onPointerMove(e));
+      window.addEventListener('pointerup', e=> this.onPointerUp(e));
+      window.addEventListener('pointercancel', e=> this.onPointerUp(e));
+    }
+    // opts: { knownShape: cells } for challenge/free (shape shown to player)
+    //       { pieceCount: N } for stage mode (shape must be inferred by the player)
+    //       { coloredCells: cells } for color mode — each piece must contain
+    //       exactly one of these cells, on top of whichever shape rule applies
+    load(region, opts){
+      opts = opts || {};
+      this.knownShape = opts.knownShape || null;
+      this.pieceCount = opts.pieceCount || null;
+      this.coloredKeys = new Set((opts.coloredCells || []).map(c=>c.join(',')));
+      this.targetSize = this.knownShape ? this.knownShape.length : Math.round(region.length / this.pieceCount);
+      if(this.knownShape){
+        this.referenceBaseShape = normalize(this.knownShape);
+        this.referenceOrientations = getOrientations(this.knownShape);
+        this.referenceKeySet = new Set(this.referenceOrientations.map(o=>keyOf(o)));
+      } else {
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      this.occupied = new Set(region.map(c=>c.join(',')));
+      this.filled = new Map();
+      this.pieceGroups = [];
+      this.selection = new Set();
+      this.won = false;
+      const minx = Math.min(...region.map(c=>c[0]));
+      const miny = Math.min(...region.map(c=>c[1]));
+      const maxx = Math.max(...region.map(c=>c[0]));
+      const maxy = Math.max(...region.map(c=>c[1]));
+      this.minx = minx; this.miny = miny;
+      this.cols = maxx-minx+1; this.rows = maxy-miny+1;
+      this.render();
+      this.onChange();
+      // Safety re-render: if load() is called right as the screen becomes
+      // visible, the container may not have its final layout width yet
+      // (display:none -> block hasn't been painted), which would make the
+      // very first render use a fallback tiny cell size. Re-measuring on
+      // the next frame guarantees the board sizes correctly on first view.
+      requestAnimationFrame(()=> this.render());
+    }
+    cellSizePx(){
+      const outer = this.boardEl.parentElement;
+      const available = Math.min((outer ? outer.clientWidth : 480) - 24, 520);
+      const byCols = Math.floor((available - (this.cols-1)*2)/this.cols);
+      return Math.max(16, Math.min(42, byCols));
+    }
+    render(){
+      const px = this.cellSizePx();
+      this.boardEl.style.gridTemplateColumns = `repeat(${this.cols}, ${px}px)`;
+      this.boardEl.style.gridTemplateRows = `repeat(${this.rows}, ${px}px)`;
+      this.boardEl.innerHTML = '';
+      for(let y=0;y<this.rows;y++){
+        for(let x=0;x<this.cols;x++){
+          const gx = x+this.minx, gy = y+this.miny;
+          const key = gx+','+gy;
+          const d = document.createElement('div');
+          if(!this.occupied.has(key)){
+            d.className = 'cell inactive';
+          } else if(this.filled.has(key)){
+            const pIdx = this.filled.get(key);
+            const group = this.pieceGroups[pIdx];
+            d.className = 'cell filled' + (pIdx === this.pieceGroups.length-1 ? ' last-piece' : '');
+            d.style.background = group.color;
+            d.dataset.key = key;
+          } else {
+            d.className = 'cell active' + (this.selection.has(key) ? ' selected' : '');
+            d.dataset.key = key;
+          }
+          if(this.coloredKeys && this.coloredKeys.has(key)){
+            const mark = document.createElement('div');
+            mark.className = 'color-mark';
+            d.appendChild(mark);
+          }
+          this.boardEl.appendChild(d);
+        }
+      }
+    }
+    cellElFromPoint(clientX, clientY){
+      const el = document.elementFromPoint(clientX, clientY);
+      if(!el) return null;
+      const cellEl = el.closest ? el.closest('.cell.active') : null;
+      if(!cellEl || !this.boardEl.contains(cellEl)) return null;
+      return cellEl;
+    }
+    applyDrag(key){
+      const has = this.selection.has(key);
+      if(this.dragMode && !has){ this.selection.add(key); this.render(); this.onChange(); }
+      else if(!this.dragMode && has){ this.selection.delete(key); this.render(); this.onChange(); }
+    }
+    onPointerDown(e){
+      if(this.won) {
+        // even after winning, allow clicking a filled piece to undo it
+      }
+      const filledEl = e.target.closest ? e.target.closest('.cell.filled') : null;
+      if(filledEl){
+        e.preventDefault();
+        this.removePieceAt(filledEl.dataset.key);
+        return;
+      }
+      if(this.won) return;
+      const cellEl = e.target.closest ? e.target.closest('.cell.active') : null;
+      if(!cellEl) return;
+      e.preventDefault();
+      const key = cellEl.dataset.key;
+      this.dragging = true;
+      this.dragMode = !this.selection.has(key);
+      this.applyDrag(key);
+      try{ this.boardEl.setPointerCapture(e.pointerId); }catch(err){}
+    }
+    onPointerMove(e){
+      if(!this.dragging) return;
+      const cellEl = this.cellElFromPoint(e.clientX, e.clientY);
+      if(!cellEl) return;
+      this.applyDrag(cellEl.dataset.key);
+    }
+    onPointerUp(e){
+      if(!this.dragging) return;
+      this.dragging = false;
+      if(this.selection.size === this.targetSize) this.checkSelection();
+    }
+    checkSelection(){
+      const cells = [...this.selection].map(k=>k.split(',').map(Number));
+      const norm = normalize(cells);
+      let valid;
+      if(this.referenceKeySet === null){
+        // first placement in "infer the shape" mode: any connected group defines the shape
+        valid = isConnected(cells);
+        if(valid){
+          this.referenceBaseShape = norm;
+          this.referenceOrientations = getOrientations(norm);
+          this.referenceKeySet = new Set(this.referenceOrientations.map(o=>keyOf(o)));
+        }
+      } else {
+        valid = this.referenceKeySet.has(keyOf(norm));
+      }
+      if(valid && this.coloredKeys && this.coloredKeys.size > 0){
+        const coloredCount = cells.filter(([x,y])=> this.coloredKeys.has(x+','+y)).length;
+        if(coloredCount !== 1){
+          valid = false;
+          // this selection would have defined the shape (first piece) — since
+          // it fails the colored-cell rule, undo that so the player can try
+          // a different first shape instead of getting stuck on this one
+          if(this.pieceGroups.length === 0){
+            this.referenceBaseShape = null;
+            this.referenceOrientations = null;
+            this.referenceKeySet = null;
+          }
+        }
+      }
+      if(valid){
+        const color = PIECE_COLORS[this.pieceGroups.length % PIECE_COLORS.length];
+        const pIdx = this.pieceGroups.length;
+        this.pieceGroups.push({ cells:[...this.selection], color });
+        for(const key of this.selection) this.filled.set(key, pIdx);
+        this.selection = new Set();
+        this.render();
+        this.onChange();
+        let remaining = 0;
+        for(const key of this.occupied) if(!this.filled.has(key)) remaining++;
+        if(remaining === 0){
+          this.won = true;
+          this.onWin(this.pieceGroups.length);
+        }
+      } else {
+        const keys = [...this.selection];
+        this.selection = new Set();
+        this.render();
+        keys.forEach(key=>{
+          const idx = this.keyToIndex(key);
+          const el = this.boardEl.children[idx];
+          if(el) el.classList.add('invalid');
+        });
+        this.onChange();
+        setTimeout(()=>{
+          keys.forEach(key=>{
+            const idx = this.keyToIndex(key);
+            const el = this.boardEl.children[idx];
+            if(el && el.dataset.key === key) el.classList.remove('invalid');
+          });
+        }, 300);
+      }
+    }
+    keyToIndex(key){
+      const [gx,gy] = key.split(',').map(Number);
+      const x = gx-this.minx, y = gy-this.miny;
+      return y*this.cols + x;
+    }
+    removePieceAt(key){
+      if(!this.filled.has(key)) return;
+      const idx = this.filled.get(key);
+      this.pieceGroups.splice(idx, 1);
+      this.filled = new Map();
+      this.pieceGroups.forEach((g, newIdx)=>{
+        g.cells.forEach(k=> this.filled.set(k, newIdx));
+      });
+      this.won = false;
+      if(!this.knownShape && this.pieceGroups.length === 0){
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      this.render();
+      this.onChange();
+    }
+    clearSelection(){ this.selection = new Set(); this.render(); this.onChange(); }
+    undo(){
+      const last = this.pieceGroups.pop();
+      if(!last) return;
+      for(const key of last.cells) this.filled.delete(key);
+      this.won = false;
+      if(!this.knownShape && this.pieceGroups.length === 0){
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      this.render();
+      this.onChange();
+    }
+    resetFill(){
+      this.filled = new Map(); this.pieceGroups = []; this.selection = new Set(); this.won = false;
+      if(!this.knownShape){
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      this.render(); this.onChange();
+    }
+  }
+
+  function renderPiecePreview(el, pieceCells){
+    const norm = normalize(pieceCells);
+    const maxx = Math.max(...norm.map(c=>c[0]));
+    const maxy = Math.max(...norm.map(c=>c[1]));
+    el.style.gridTemplateColumns = `repeat(${maxx+1}, 16px)`;
+    el.style.gridTemplateRows = `repeat(${maxy+1}, 16px)`;
+    el.innerHTML = '';
+    const set = new Set(norm.map(c=>c.join(',')));
+    for(let y=0;y<=maxy;y++){
+      for(let x=0;x<=maxx;x++){
+        const d = document.createElement('div');
+        d.className = 'preview-cell' + (set.has(x+','+y) ? '' : ' off');
+        el.appendChild(d);
+      }
+    }
+  }
+
+  function renderShapeThumbnail(el, region, maxPx){
+    const norm = normalize(region);
+    const cols = Math.max(...norm.map(c=>c[0])) + 1;
+    const rows = Math.max(...norm.map(c=>c[1])) + 1;
+    const px = Math.max(4, Math.min(12, Math.floor((maxPx-  (Math.max(cols,rows)-1)*1.5) / Math.max(cols,rows))));
+    const wrap = document.createElement('div');
+    wrap.className = 'stage-thumb-grid';
+    wrap.style.gridTemplateColumns = `repeat(${cols}, ${px}px)`;
+    wrap.style.gridTemplateRows = `repeat(${rows}, ${px}px)`;
+    const set = new Set(norm.map(c=>c.join(',')));
+    for(let y=0;y<rows;y++){
+      for(let x=0;x<cols;x++){
+        const d = document.createElement('div');
+        if(set.has(x+','+y)) d.className = 'stage-thumb-cell';
+        else d.style.background = 'transparent';
+        wrap.appendChild(d);
+      }
+    }
+    el.innerHTML = '';
+    el.appendChild(wrap);
+  }
+
+  /* =====================================================================
+     NAVIGATION
+  ===================================================================== */
+  const screens = document.querySelectorAll('.screen');
+  function goto(name){
+    screens.forEach(s=> s.classList.toggle('active', s.id === 'screen-'+name));
+    if(name === 'stageList') renderStageGrid();
+    if(name === 'createHome') renderCustomGrid();
+    if(name === 'colorHome') renderColorBigGrid();
+    if(name === 'colorSmallList') renderColorSmallGrid();
+    if(name === 'createEditor'){
+      // The editor board may have been sized/rendered while its screen was
+      // still display:none (viewport had 0 width/height), which would
+      // compute a wrong window size. Re-measure and re-render on the next
+      // frame now that the screen is actually visible.
+      requestAnimationFrame(()=>{
+        creationBoard.updateViewportSize();
+        creationBoard.render();
+      });
+    }
+  }
+  document.querySelectorAll('[data-goto]').forEach(el=>{
+    el.addEventListener('click', ()=> goto(el.dataset.goto));
+  });
+  document.getElementById('brandHome').addEventListener('click', ()=> goto('home'));
+
+  /* =====================================================================
+     THEME
+  ===================================================================== */
+  const themeSwitch = document.getElementById('themeSwitch');
+  const themeLabel = document.getElementById('themeLabel');
+  themeSwitch.addEventListener('click', ()=>{
+    const html = document.documentElement;
+    const next = html.getAttribute('data-theme') === 'light' ? 'dark' : 'light';
+    html.setAttribute('data-theme', next);
+    themeLabel.textContent = next === 'light' ? '라이트' : '다크';
+  });
+
+  /* =====================================================================
+     STAGE MODE
+  ===================================================================== */
+  function renderStageGrid(){
+    const grid = document.getElementById('stageGrid');
+    grid.innerHTML = '';
+    const doneCount = STAGES.filter(st=> st.completed).length;
+    document.getElementById('stageProgress').textContent = `${doneCount} / ${STAGES.length}`;
+    STAGES.forEach((st, i)=>{
+      const pieceSize = Math.round(st.region.length / st.pieceCount);
+      const card = document.createElement('button');
+      card.className = 'stage-card' + (st.completed ? ' done' : '');
+      card.innerHTML = `
+        <div class="stage-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="stage-thumb" id="stageThumb${i}"></div>
+        <div class="stage-formula">${pieceSize} × ${st.pieceCount}</div>
+        <div class="stage-status">${st.completed ? '완료' : '미해결'}</div>
+      `;
+      card.addEventListener('click', ()=> openStagePlay('official', i));
+      grid.appendChild(card);
+      renderShapeThumbnail(card.querySelector(`#stageThumb${i}`), st.region, 90);
+    });
+  }
+
+  const boardStageEl = document.getElementById('boardStage');
+  let currentStageIdx = 0;
+  let stagePlaySource = 'official'; // 'official' | 'custom'
+
+  const stageBoard = new PuzzleBoard(boardStageEl, {
+    onChange: ()=>{
+      document.getElementById('stageClearSelBtn').disabled = stageBoard.selection.size === 0;
+      document.getElementById('stageUndoBtn').disabled = stageBoard.pieceGroups.length === 0;
+      document.getElementById('stagePlaced').textContent = stageBoard.pieceGroups.length;
+      if(!stageBoard.won){
+        document.getElementById('stageBanner').classList.remove('show');
+        document.getElementById('stageReveal').classList.remove('show');
+      }
+    },
+    onWin: (pieceCount)=>{
+      const list = stagePlaySource === 'custom' ? customStages : STAGES;
+      const st = list[currentStageIdx];
+      st.completed = true;
+      document.getElementById('stageBanner').classList.add('show');
+      const pieceSize = Math.round(st.region.length / st.pieceCount);
+      document.getElementById('stageRevealFormula').textContent = `${pieceSize} × ${pieceCount}`;
+      renderPiecePreview(document.getElementById('stageRevealPreview'), stageBoard.referenceBaseShape);
+      document.getElementById('stageReveal').classList.add('show');
+      const nextBtn = document.getElementById('stageNextBtn');
+      nextBtn.textContent = currentStageIdx < list.length-1 ? '다음 스테이지' : (stagePlaySource==='custom' ? '창작 목록으로' : '스테이지 목록으로');
+    }
+  });
+
+  function openStagePlay(source, i){
+    stagePlaySource = source;
+    currentStageIdx = i;
+    const list = source === 'custom' ? customStages : STAGES;
+    const st = list[i];
+    const pieceSize = Math.round(st.region.length / st.pieceCount);
+    const backBtn = document.getElementById('stagePlayBackBtn');
+    backBtn.dataset.goto = source === 'custom' ? 'createHome' : 'stageList';
+    backBtn.textContent = source === 'custom' ? '← 창작 목록' : '← 스테이지 목록';
+    document.getElementById('stagePlayEyebrow').textContent = source === 'custom'
+      ? (st.name || '이름 없는 퍼즐')
+      : `Stage ${i+1} / ${STAGES.length}`;
+    document.getElementById('stageFormula').textContent = `${pieceSize} × ${st.pieceCount}`;
+    document.getElementById('stageTotalCells').textContent = st.region.length;
+    document.getElementById('stageBanner').classList.remove('show');
+    document.getElementById('stageReveal').classList.remove('show');
+    goto('stagePlay');
+    stageBoard.load(st.region, { pieceCount: st.pieceCount });
+  }
+
+  document.getElementById('stageClearSelBtn').addEventListener('click', ()=> stageBoard.clearSelection());
+  document.getElementById('stageUndoBtn').addEventListener('click', ()=> stageBoard.undo());
+  document.getElementById('stageResetBtn').addEventListener('click', ()=> stageBoard.resetFill());
+  document.getElementById('stageNextBtn').addEventListener('click', ()=>{
+    const list = stagePlaySource === 'custom' ? customStages : STAGES;
+    if(currentStageIdx < list.length-1) openStagePlay(stagePlaySource, currentStageIdx+1);
+    else goto(stagePlaySource === 'custom' ? 'createHome' : 'stageList');
+  });
+
+  /* =====================================================================
+     CHALLENGE MODE
+  ===================================================================== */
+  const bestTimes = { easy:null, normal:null, hard:null };
+  let selectedDiff = 'normal';
+  const ROUNDS = 5;
+
+  function renderDiffGrid(){
+    const grid = document.getElementById('challengeDiffGrid');
+    grid.innerHTML = '';
+    DIFFICULTIES.forEach(d=>{
+      const card = document.createElement('button');
+      card.className = 'diff-card' + (d.id===selectedDiff ? ' selected' : '');
+      const best = bestTimes[d.id];
+      card.innerHTML = `
+        <h4>${d.label}</h4>
+        <div class="best">${d.hint}</div>
+        <div class="best">최고 기록 ${best ? formatTime(best) : '—'}</div>
+      `;
+      card.addEventListener('click', ()=>{ selectedDiff = d.id; renderDiffGrid(); });
+      grid.appendChild(card);
+    });
+  }
+  renderDiffGrid();
+
+  function formatTime(ms){
+    const totalSec = ms/1000;
+    const m = Math.floor(totalSec/60);
+    const s = (totalSec%60).toFixed(1);
+    return `${String(m).padStart(2,'0')}:${s.padStart(4,'0')}`;
+  }
+
+  function totalShapeCount(diff){
+    return Object.values(diff.sizePools).reduce((sum,arr)=> sum+arr.length, 0);
+  }
+
+  function randomPuzzleFor(diffId, excludeShape){
+    const diff = DIFFICULTIES.find(d=>d.id===diffId);
+    const sizes = Object.keys(diff.sizePools).map(Number);
+    let pieceSize, shape;
+    let attempts = 0;
+    // Re-roll if we land on the exact shape used last time, so the same
+    // piece never appears twice in a row (unless the pool only has one
+    // shape total, in which case repeating is unavoidable).
+    do {
+      pieceSize = sizes[Math.floor(Math.random()*sizes.length)];
+      const shapes = diff.sizePools[pieceSize];
+      shape = shapes[Math.floor(Math.random()*shapes.length)];
+      attempts++;
+    } while(shape === excludeShape && attempts < 20 && totalShapeCount(diff) > 1);
+    const [lo,hi] = diff.totalRange;
+    const totalCells = lo + Math.floor(Math.random()*(hi-lo+1));
+    const count = Math.max(2, Math.round(totalCells/pieceSize));
+    const { pieces, occupied } = generateRegion(shape, count);
+    const region = [...occupied].map(k=>k.split(',').map(Number));
+    return { region, pieceCount: pieces.length, shape };
+  }
+
+  const boardChallengeEl = document.getElementById('boardChallenge');
+  let challengeRound = 0;
+  let challengeStartTime = 0;
+  let challengeRoundStart = 0;
+  let challengeSplits = [];
+  let challengeTimerId = null;
+  let lastChallengeShape = null;
+
+  const challengeBoard = new PuzzleBoard(boardChallengeEl, {
+    onChange: ()=>{
+      document.getElementById('challengeClearSelBtn').disabled = challengeBoard.selection.size === 0;
+      document.getElementById('challengeUndoBtn').disabled = challengeBoard.pieceGroups.length === 0;
+      document.getElementById('challengePlaced').textContent = `${challengeBoard.pieceGroups.length} / ${challengeBoard.pieceCount || '?'}`;
+      if(!challengeBoard.won){
+        document.getElementById('challengeBanner').classList.remove('show');
+      }
+    },
+    onWin: ()=>{
+      const now = performance.now();
+      challengeSplits.push(now - challengeRoundStart);
+      document.getElementById('challengeBanner').classList.add('show');
+      setTimeout(()=>{
+        document.getElementById('challengeBanner').classList.remove('show');
+        if(challengeRound < ROUNDS-1){
+          challengeRound++;
+          startChallengeRound();
+        } else {
+          finishChallenge();
+        }
+      }, 500);
+    }
+  });
+
+  function newChallengePuzzle(){
+    const { region, pieceCount, shape } = randomPuzzleFor(selectedDiff, lastChallengeShape);
+    lastChallengeShape = shape;
+    challengeBoard.load(region, { pieceCount });
+    const pieceSize = Math.round(region.length / pieceCount);
+    document.getElementById('challengeFormula').textContent = `${pieceSize} × ${pieceCount}`;
+  }
+
+  function startChallengeRound(){
+    document.getElementById('challengeRoundLabel').textContent = `ROUND ${challengeRound+1} / ${ROUNDS}`;
+    document.getElementById('challengeBanner').classList.remove('show');
+    newChallengePuzzle();
+    challengeRoundStart = performance.now();
+  }
+
+  function tickTimer(){
+    const el = document.getElementById('challengeTimer');
+    el.textContent = formatTime(performance.now() - challengeStartTime);
+  }
+
+  document.getElementById('challengeStartBtn').addEventListener('click', ()=>{
+    challengeRound = 0;
+    challengeSplits = [];
+    challengeStartTime = performance.now();
+    goto('challengePlay');
+    startChallengeRound();
+    clearInterval(challengeTimerId);
+    challengeTimerId = setInterval(tickTimer, 100);
+  });
+
+  document.getElementById('challengeQuitBtn').addEventListener('click', ()=>{
+    clearInterval(challengeTimerId);
+    goto('challengeSetup');
+  });
+
+  document.getElementById('challengeClearSelBtn').addEventListener('click', ()=> challengeBoard.clearSelection());
+  document.getElementById('challengeUndoBtn').addEventListener('click', ()=> challengeBoard.undo());
+  document.getElementById('challengeResetBtn').addEventListener('click', ()=> challengeBoard.resetFill());
+
+  function finishChallenge(){
+    clearInterval(challengeTimerId);
+    const total = performance.now() - challengeStartTime;
+    const isNewBest = !bestTimes[selectedDiff] || total < bestTimes[selectedDiff];
+    if(isNewBest) bestTimes[selectedDiff] = total;
+
+    document.getElementById('resultTotalTime').textContent = formatTime(total);
+    document.getElementById('resultBest').textContent = isNewBest ? '새 기록입니다' : `최고 기록 ${formatTime(bestTimes[selectedDiff])}`;
+    const splitsEl = document.getElementById('resultSplits');
+    splitsEl.innerHTML = '';
+    challengeSplits.forEach((t,i)=>{
+      const row = document.createElement('div');
+      row.className = 'split-row';
+      row.innerHTML = `<span>ROUND ${i+1}</span><span>${formatTime(t)}</span>`;
+      splitsEl.appendChild(row);
+    });
+    goto('challengeResult');
+  }
+
+  document.getElementById('resultRetryBtn').addEventListener('click', ()=>{
+    renderDiffGrid();
+    goto('challengeSetup');
+  });
+
+  /* =====================================================================
+     FREEPLAY MODE
+  ===================================================================== */
+  const freeDiffSelect = document.getElementById('freeDiffSelect');
+
+  const boardFreeEl = document.getElementById('boardFree');
+  const freeBoard = new PuzzleBoard(boardFreeEl, {
+    onChange: ()=>{
+      document.getElementById('freeClearSelBtn').disabled = freeBoard.selection.size === 0;
+      document.getElementById('freeUndoBtn').disabled = freeBoard.pieceGroups.length === 0;
+      document.getElementById('freePlaced').textContent = `${freeBoard.pieceGroups.length} / ${freeBoard.pieceCount || '?'}`;
+      if(!freeBoard.won){
+        document.getElementById('freeBanner').classList.remove('show');
+      }
+    },
+    onWin: ()=>{
+      document.getElementById('freeBanner').classList.add('show');
+    }
+  });
+
+  let lastFreeShape = null;
+  function newFreePuzzle(){
+    const { region, pieceCount, shape } = randomPuzzleFor(freeDiffSelect.value, lastFreeShape);
+    lastFreeShape = shape;
+    document.getElementById('freeBanner').classList.remove('show');
+    freeBoard.load(region, { pieceCount });
+    const pieceSize = Math.round(region.length / pieceCount);
+    document.getElementById('freeFormula').textContent = `${pieceSize} × ${pieceCount}`;
+  }
+
+  document.getElementById('freeNewBtn').addEventListener('click', newFreePuzzle);
+  freeDiffSelect.addEventListener('change', newFreePuzzle);
+  document.getElementById('freeClearSelBtn').addEventListener('click', ()=> freeBoard.clearSelection());
+  document.getElementById('freeUndoBtn').addEventListener('click', ()=> freeBoard.undo());
+  document.getElementById('freeResetBtn').addEventListener('click', ()=> freeBoard.resetFill());
+
+  /* =====================================================================
+     CREATE MODE
+  ===================================================================== */
+  class CreationBoard {
+    // Unlimited logical canvas: cells can have any integer (x,y), including
+    // negative. Only a fixed-size window of the canvas is ever rendered —
+    // sized to fill the visible viewport — and the arrow keys shift which
+    // window (origin) is shown. There's no scrolling at all, so no
+    // scrollbar ever appears; only the drawn cells get saved in the end,
+    // so the canvas never needs a bound.
+    constructor(boardEl, opts){
+      this.boardEl = boardEl;
+      this.viewport = boardEl.parentElement;
+      this.onChange = (opts && opts.onChange) || function(){};
+      this.onReject = (opts && opts.onReject) || function(){};
+      this.cellSize = 26;
+      this.gap = 2;
+      this.viewCols = 10; this.viewRows = 10; // recomputed in updateViewportSize()
+      this.originX = 0; this.originY = 0;     // logical coords of the window's top-left cell
+      this.occupied = new Set();       // cells belonging to some placed piece
+      this.pieceGroups = [];           // { cells:[key,...], color }
+      this.selection = new Set();
+      this.referenceBaseShape = null;  // normalized cells of piece #1 (defines the shape)
+      this.referenceOrientations = null;
+      this.referenceKeySet = null;
+      this.dragging = false; this.dragMode = null;
+
+      this.boardEl.style.touchAction = 'none';
+      this.boardEl.addEventListener('pointerdown', e=> this.onPointerDown(e));
+      this.boardEl.addEventListener('pointermove', e=> this.onPointerMove(e));
+      window.addEventListener('pointerup', e=> this.onPointerUp(e));
+      window.addEventListener('pointercancel', e=> this.onPointerUp(e));
+      this.updateViewportSize();
+      this.render();
+    }
+    updateViewportSize(){
+      if(!this.viewport) return;
+      const availW = Math.max(140, this.viewport.clientWidth - 16);
+      const availH = Math.max(140, this.viewport.clientHeight - 16);
+      const step = this.cellSize + this.gap;
+      this.viewCols = Math.max(6, Math.floor((availW + this.gap) / step));
+      this.viewRows = Math.max(6, Math.floor((availH + this.gap) / step));
+    }
+    pan(dCols, dRows){
+      this.originX += dCols;
+      this.originY += dRows;
+      this.render();
+    }
+    reset(){
+      this.occupied = new Set();
+      this.pieceGroups = [];
+      this.selection = new Set();
+      this.referenceBaseShape = null;
+      this.referenceOrientations = null;
+      this.referenceKeySet = null;
+      this.originX = 0; this.originY = 0;
+      this.render();
+      this.onChange();
+    }
+    render(){
+      const px = this.cellSize;
+      this.boardEl.style.gridTemplateColumns = `repeat(${this.viewCols}, ${px}px)`;
+      this.boardEl.style.gridTemplateRows = `repeat(${this.viewRows}, ${px}px)`;
+      this.boardEl.innerHTML = '';
+      for(let iy=0; iy<this.viewRows; iy++){
+        for(let ix=0; ix<this.viewCols; ix++){
+          const lx = this.originX+ix, ly = this.originY+iy;
+          const key = lx+','+ly;
+          const d = document.createElement('div');
+          d.dataset.key = key;
+          if(this.occupied.has(key)){
+            const pIdx = this.filledIndex(key);
+            d.className = 'cell filled' + (pIdx === this.pieceGroups.length-1 ? ' last-piece' : '');
+            d.style.background = this.pieceGroups[pIdx].color;
+          } else {
+            d.className = 'cell active' + (this.selection.has(key) ? ' selected' : '');
+          }
+          this.boardEl.appendChild(d);
+        }
+      }
+    }
+    filledIndex(key){
+      return this.pieceGroups.findIndex(g=> g.cells.includes(key));
+    }
+    cellElFromPoint(clientX, clientY){
+      const el = document.elementFromPoint(clientX, clientY);
+      if(!el) return null;
+      const c = el.closest ? el.closest('.cell.active') : null;
+      if(!c || !this.boardEl.contains(c)) return null;
+      return c;
+    }
+    applyDrag(key){
+      const has = this.selection.has(key);
+      if(this.dragMode && !has){ this.selection.add(key); this.render(); this.onChange(); }
+      else if(!this.dragMode && has){ this.selection.delete(key); this.render(); this.onChange(); }
+    }
+    onPointerDown(e){
+      const filledEl = e.target.closest ? e.target.closest('.cell.filled') : null;
+      if(filledEl){
+        e.preventDefault();
+        this.removePieceAt(filledEl.dataset.key);
+        return;
+      }
+      const cellEl = e.target.closest ? e.target.closest('.cell.active') : null;
+      if(!cellEl) return;
+      e.preventDefault();
+      const key = cellEl.dataset.key;
+      this.dragging = true;
+      this.dragMode = !this.selection.has(key);
+      this.applyDrag(key);
+      try{ this.boardEl.setPointerCapture(e.pointerId); }catch(err){}
+    }
+    onPointerMove(e){
+      if(!this.dragging) return;
+      const cellEl = this.cellElFromPoint(e.clientX, e.clientY);
+      if(!cellEl) return;
+      this.applyDrag(cellEl.dataset.key);
+    }
+    onPointerUp(){
+      if(!this.dragging) return;
+      this.dragging = false;
+      if(this.selection.size > 0) this.tryCommitSelection();
+    }
+    tryCommitSelection(){
+      const cells = [...this.selection].map(k=>k.split(',').map(Number));
+      if(this.referenceKeySet === null){
+        if(!isConnected(cells)){ this.reject('선택한 칸이 서로 이어져 있어야 해요'); return; }
+        const norm = normalize(cells);
+        this.referenceBaseShape = norm;
+        this.referenceOrientations = getOrientations(norm);
+        this.referenceKeySet = new Set(this.referenceOrientations.map(o=>keyOf(o)));
+        this.commit(cells);
+      } else {
+        const targetSize = this.referenceBaseShape.length;
+        if(cells.length !== targetSize){
+          this.reject(`첫 조각과 같은 칸 수(${targetSize}칸)여야 해요`);
+          return;
+        }
+        const norm = normalize(cells);
+        if(!this.referenceKeySet.has(keyOf(norm))){
+          this.reject('첫 조각과 합동인 모양이어야 해요 (회전·대칭 허용)');
+          return;
+        }
+        const touches = cells.some(([x,y])=>
+          [[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=> this.occupied.has((x+dx)+','+(y+dy)))
+        );
+        if(!touches){ this.reject('기존 도형과 맞닿아 있어야 해요'); return; }
+        this.commit(cells);
+      }
+    }
+    commit(cells){
+      const color = PIECE_COLORS[this.pieceGroups.length % PIECE_COLORS.length];
+      const keys = cells.map(c=>c.join(','));
+      keys.forEach(k=> this.occupied.add(k));
+      this.pieceGroups.push({ cells:keys, color });
+      this.selection = new Set();
+      this.render();
+      this.onChange();
+    }
+    reject(msg){
+      const keys = [...this.selection];
+      this.selection = new Set();
+      this.render();
+      keys.forEach(key=>{
+        const el = this.boardEl.querySelector(`[data-key="${key}"]`);
+        if(el) el.classList.add('invalid');
+      });
+      this.onReject(msg);
+      this.onChange();
+      setTimeout(()=>{
+        keys.forEach(key=>{
+          const el = this.boardEl.querySelector(`[data-key="${key}"]`);
+          if(el) el.classList.remove('invalid');
+        });
+      }, 350);
+    }
+    removePieceAt(key){
+      const idx = this.filledIndex(key);
+      if(idx < 0) return;
+      this.pieceGroups.splice(idx, 1);
+      this.occupied = new Set();
+      this.pieceGroups.forEach(g=> g.cells.forEach(k=> this.occupied.add(k)));
+      if(this.pieceGroups.length === 0){
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      this.render();
+      this.onChange();
+    }
+    undo(){
+      const last = this.pieceGroups.pop();
+      if(!last) return;
+      last.cells.forEach(k=> this.occupied.delete(k));
+      if(this.pieceGroups.length === 0){
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      this.render();
+      this.onChange();
+    }
+    getRegion(){ return [...this.occupied].map(k=>k.split(',').map(Number)); }
+    // Region trimmed to its own bounding box (min x/y shifted to 0), so a
+    // puzzle drawn anywhere on the big 20x20 canvas is saved at whatever
+    // width/height it actually occupies, with no manual size input needed.
+    getNormalizedRegion(){
+      const region = this.getRegion();
+      if(region.length === 0) return region;
+      const minx = Math.min(...region.map(c=>c[0]));
+      const miny = Math.min(...region.map(c=>c[1]));
+      return region.map(([x,y])=>[x-minx, y-miny]);
+    }
+    getPieceSize(){ return this.referenceBaseShape ? this.referenceBaseShape.length : 0; }
+    getPieceCount(){ return this.pieceGroups.length; }
+  }
+
+  function showEditorError(msg){
+    const el = document.getElementById('editorError');
+    el.textContent = msg;
+    el.classList.add('show');
+  }
+  function hideEditorError(){
+    document.getElementById('editorError').classList.remove('show');
+  }
+  function updateEditorFormula(){
+    const size = creationBoard.getPieceSize();
+    const count = creationBoard.getPieceCount();
+    document.getElementById('editorFormula').textContent = `${size} × ${count}`;
+    document.getElementById('editorUndoBtn').disabled = count === 0;
+  }
+
+  const creationBoard = new CreationBoard(document.getElementById('boardEditor'), {
+    onChange: updateEditorFormula,
+    onReject: (msg)=> showEditorError(msg)
+  });
+
+  // Arrow keys pan the (unlimited) creation board one cell at a time —
+  // only while that screen is active, and not while typing in the
+  // puzzle-name field.
+  window.addEventListener('keydown', e=>{
+    if(!document.getElementById('screen-createEditor').classList.contains('active')) return;
+    const active = document.activeElement;
+    if(active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')) return;
+    if(e.key === 'ArrowUp'){ creationBoard.pan(0, 1); e.preventDefault(); }
+    else if(e.key === 'ArrowDown'){ creationBoard.pan(0, -1); e.preventDefault(); }
+    else if(e.key === 'ArrowLeft'){ creationBoard.pan(1, 0); e.preventDefault(); }
+    else if(e.key === 'ArrowRight'){ creationBoard.pan(-1, 0); e.preventDefault(); }
+  });
+
+  document.getElementById('editorClearBtn').addEventListener('click', ()=>{
+    creationBoard.reset();
+    hideEditorError();
+  });
+  document.getElementById('editorUndoBtn').addEventListener('click', ()=>{
+    creationBoard.undo();
+    hideEditorError();
+  });
+
+  document.getElementById('createNewBtn').addEventListener('click', ()=>{
+    document.getElementById('editorNameInput').value = '';
+    creationBoard.reset();
+    hideEditorError();
+    goto('createEditor');
+    updateEditorFormula();
+  });
+
+  document.getElementById('editorSaveBtn').addEventListener('click', ()=>{
+    hideEditorError();
+    const name = document.getElementById('editorNameInput').value.trim();
+    const region = creationBoard.getNormalizedRegion();
+    const pieceCount = creationBoard.getPieceCount();
+
+    if(!name){ showEditorError('퍼즐 이름을 입력해주세요.'); return; }
+    if(pieceCount < 2){ showEditorError('조각을 2개 이상 그려주세요.'); return; }
+
+    // Every saved puzzle is built entirely from congruent, connected pieces,
+    // so it is guaranteed solvable by construction — no extra search needed.
+    customStages.push({ name, pieceCount, region, completed:false });
+    goto('createHome');
+  });
+
+  function renderCustomGrid(){
+    const grid = document.getElementById('customGrid');
+    grid.innerHTML = '';
+    if(customStages.length === 0){
+      const hint = document.createElement('div');
+      hint.className = 'empty-hint';
+      hint.textContent = '아직 만든 퍼즐이 없어요. "새 퍼즐 만들기"로 시작해보세요.';
+      grid.appendChild(hint);
+      return;
+    }
+    customStages.forEach((st, i)=>{
+      const pieceSize = Math.round(st.region.length / st.pieceCount);
+      const card = document.createElement('div');
+      card.className = 'stage-card' + (st.completed ? ' done' : '');
+      card.innerHTML = `
+        <div class="stage-card-row">
+          <div class="stage-num">${String(i+1).padStart(2,'0')}</div>
+          <button class="stage-card-del" title="삭제">✕</button>
+        </div>
+        <div class="stage-thumb" id="customThumb${i}"></div>
+        <div class="stage-meta">${st.name}</div>
+        <div class="stage-formula">${pieceSize} × ${st.pieceCount}</div>
+        <div class="stage-status">${st.completed ? '완료' : '미해결'}</div>
+      `;
+      card.querySelector('.stage-card-del').addEventListener('click', (e)=>{
+        e.stopPropagation();
+        customStages.splice(i,1);
+        renderCustomGrid();
+      });
+      card.addEventListener('click', ()=> openStagePlay('custom', i));
+      grid.appendChild(card);
+      renderShapeThumbnail(card.querySelector(`#customThumb${i}`), st.region, 90);
+    });
+  }
+
+  /* =====================================================================
+     COLOR MODE PLAY
+  ===================================================================== */
+  function renderColorBigGrid(){
+    const grid = document.getElementById('colorBigGrid');
+    grid.innerHTML = '';
+    const totalSmalls = COLOR_STAGES.reduce((s,b)=> s+b.parsed.length, 0);
+    const doneSmalls = COLOR_STAGES.reduce((s,b)=> s+b.parsed.filter(p=>p.completed).length, 0);
+    document.getElementById('colorBigProgress').textContent = `${doneSmalls} / ${totalSmalls}`;
+    COLOR_STAGES.forEach((big, i)=>{
+      const doneCount = big.parsed.filter(p=>p.completed).length;
+      const card = document.createElement('button');
+      card.className = 'stage-card' + (doneCount === big.parsed.length ? ' done' : '');
+      card.innerHTML = `
+        <div class="stage-num">${i+1}</div>
+        <div class="stage-thumb" id="colorBigThumb${i}"></div>
+        <div class="stage-meta">${big.parsed.length}문제</div>
+        <div class="stage-status">${doneCount} / ${big.parsed.length} 완료</div>
+      `;
+      card.addEventListener('click', ()=> openColorBig(i));
+      grid.appendChild(card);
+      renderShapeThumbnail(card.querySelector(`#colorBigThumb${i}`), big.parsed[0].region, 90);
+    });
+  }
+
+  let currentBigIdx = 0;
+  let currentSmallIdx = 0;
+
+  function openColorBig(i){
+    currentBigIdx = i;
+    document.getElementById('colorSmallEyebrow').textContent = `큰 스테이지 ${i+1}`;
+    goto('colorSmallList');
+  }
+
+  function renderColorSmallGrid(){
+    const grid = document.getElementById('colorSmallGrid');
+    grid.innerHTML = '';
+    const big = COLOR_STAGES[currentBigIdx];
+    big.parsed.forEach((sm, j)=>{
+      const card = document.createElement('button');
+      card.className = 'stage-card' + (sm.completed ? ' done' : '');
+      card.innerHTML = `
+        <div class="stage-num">${currentBigIdx+1}-${j+1}</div>
+        <div class="stage-thumb" id="colorSmallThumb${j}"></div>
+        <div class="stage-status">${sm.completed ? '완료' : '미해결'}</div>
+      `;
+      card.addEventListener('click', ()=> openColorPlay(j));
+      grid.appendChild(card);
+      renderColorThumbnail(card.querySelector(`#colorSmallThumb${j}`), sm.region, sm.coloredCells, 90);
+    });
+  }
+
+  const boardColorEl = document.getElementById('boardColor');
+  const colorBoard = new PuzzleBoard(boardColorEl, {
+    onChange: ()=>{
+      document.getElementById('colorClearSelBtn').disabled = colorBoard.selection.size === 0;
+      document.getElementById('colorUndoBtn').disabled = colorBoard.pieceGroups.length === 0;
+      document.getElementById('colorPlaced').textContent = colorBoard.pieceGroups.length;
+      if(!colorBoard.won){
+        document.getElementById('colorBanner').classList.remove('show');
+        document.getElementById('colorReveal').classList.remove('show');
+      }
+    },
+    onWin: (pieceCount)=>{
+      const sm = COLOR_STAGES[currentBigIdx].parsed[currentSmallIdx];
+      sm.completed = true;
+      document.getElementById('colorBanner').classList.add('show');
+      const pieceSize = Math.round(sm.region.length / pieceCount);
+      document.getElementById('colorRevealFormula').textContent = `${pieceSize} × ${pieceCount}`;
+      renderPiecePreview(document.getElementById('colorRevealPreview'), colorBoard.referenceBaseShape);
+      document.getElementById('colorReveal').classList.add('show');
+      const list = COLOR_STAGES[currentBigIdx].parsed;
+      const nextBtn = document.getElementById('colorNextBtn');
+      nextBtn.textContent = currentSmallIdx < list.length-1 ? '다음 문제' : '문제 목록으로';
+    }
+  });
+
+  function openColorPlay(j){
+    currentSmallIdx = j;
+    const sm = COLOR_STAGES[currentBigIdx].parsed[j];
+    document.getElementById('colorPlayEyebrow').textContent = `${currentBigIdx+1}-${j+1}`;
+    document.getElementById('colorBanner').classList.remove('show');
+    document.getElementById('colorReveal').classList.remove('show');
+    goto('colorPlay');
+    colorBoard.load(sm.region, { pieceCount: sm.coloredCells.length, coloredCells: sm.coloredCells });
+    const pieceSize = Math.round(sm.region.length / sm.coloredCells.length);
+    document.getElementById('colorFormula').textContent = `${pieceSize} × ${sm.coloredCells.length}`;
+  }
+
+  document.getElementById('colorClearSelBtn').addEventListener('click', ()=> colorBoard.clearSelection());
+  document.getElementById('colorUndoBtn').addEventListener('click', ()=> colorBoard.undo());
+  document.getElementById('colorResetBtn').addEventListener('click', ()=> colorBoard.resetFill());
+  document.getElementById('colorNextBtn').addEventListener('click', ()=>{
+    const list = COLOR_STAGES[currentBigIdx].parsed;
+    if(currentSmallIdx < list.length-1) openColorPlay(currentSmallIdx+1);
+    else goto('colorSmallList');
+  });
+
+  /* =====================================================================
+     RESIZE
+  ===================================================================== */
+  let resizeTimer;
+  window.addEventListener('resize', ()=>{
+    clearTimeout(resizeTimer);
+    resizeTimer = setTimeout(()=>{
+      stageBoard.render();
+      challengeBoard.render();
+      freeBoard.render();
+      colorBoard.render();
+      creationBoard.updateViewportSize();
+      creationBoard.render();
+    }, 120);
+  });
+})();
+</script>
+</body>
+</html>
