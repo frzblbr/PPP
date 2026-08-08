@@ -85,7 +85,7 @@
     color: var(--accent); letter-spacing:0.05em; white-space:nowrap;
   }
   @media (max-width: 620px){
-    .mini-puzzle{ display:none; }
+    .mini-puzzle{ gap: 4px; }
   }
 
   .title-reveal{
@@ -274,6 +274,24 @@
     margin: 0 auto;
     overflow: hidden;
   }
+  /* On-screen pan pad for the creation board — mirrors the arrow keys, for
+     touch devices and anyone without a physical keyboard. */
+  .pan-pad{
+    position:absolute; right:8px; bottom:8px;
+    display:grid; grid-template-columns:repeat(3,28px); grid-template-rows:repeat(3,28px);
+    gap:2px; z-index:5;
+  }
+  .pan-pad button{
+    padding:0; min-width:0; width:28px; height:28px;
+    display:flex; align-items:center; justify-content:center;
+    font-size:13px; line-height:1;
+    background: var(--panel); opacity:0.85;
+  }
+  .pan-pad button:active{ background: var(--cell-hover); }
+  .pan-pad .pan-up{ grid-column:2; grid-row:1; }
+  .pan-pad .pan-left{ grid-column:1; grid-row:2; }
+  .pan-pad .pan-right{ grid-column:3; grid-row:2; }
+  .pan-pad .pan-down{ grid-column:2; grid-row:3; }
 
   .cell.inactive{ background:transparent; }
   .cell.active{ background: var(--cell-empty); border: 1px solid var(--cell-empty-border); cursor:pointer; }
@@ -583,7 +601,7 @@
       <div class="page-head">
         <span class="eyebrow">Create</span>
         <div class="page-title">퍼즐 만들기</div>
-        <div class="page-sub">방향키(←↑↓→)로 격자를 움직이고, 칸을 드래그해서 조각을 그려보세요. 격자는 크기 제한이 없고, 저장할 때 실제로 칠한 부분만 잘려서 저장돼요. 첫 조각을 원하는 모양으로 그리면, 이후 조각들은 그것과 합동(회전·대칭 허용)이어야 하고 기존 도형과 맞닿아 있어야 해요.</div>
+        <div class="page-sub">방향키(←↑↓→)나 보드 오른쪽 아래의 방향 버튼으로 격자를 움직이고, 칸을 드래그해서 조각을 그려보세요. 격자는 크기 제한이 없고, 저장할 때 실제로 칠한 부분만 잘려서 저장돼요. 첫 조각을 원하는 모양으로 그리면, 이후 조각들은 그것과 합동(회전·대칭 허용)이어야 하고 기존 도형과 맞닿아 있어야 해요.</div>
       </div>
 
       <div class="controls">
@@ -601,6 +619,12 @@
 
       <div class="board-outer editor-viewport" id="editorBoardOuter">
         <div class="board" id="boardEditor"></div>
+        <div class="pan-pad">
+          <button type="button" class="pan-up" id="panUpBtn" aria-label="위로 이동">↑</button>
+          <button type="button" class="pan-left" id="panLeftBtn" aria-label="왼쪽으로 이동">←</button>
+          <button type="button" class="pan-right" id="panRightBtn" aria-label="오른쪽으로 이동">→</button>
+          <button type="button" class="pan-down" id="panDownBtn" aria-label="아래로 이동">↓</button>
+        </div>
       </div>
 
       <div class="controls" style="margin-top:18px;">
@@ -1885,6 +1909,32 @@
     else if(e.key === 'ArrowRight'){ creationBoard.pan(-1, 0); e.preventDefault(); }
   });
 
+  // On-screen pan pad (same directions as the arrow keys above) — lets
+  // touch/mobile users move the creation canvas without a keyboard. Holding
+  // a button down repeats the move, like holding an arrow key.
+  (function setupPanPad(){
+    const dirs = [
+      ['panUpBtn', 0, 1], ['panDownBtn', 0, -1],
+      ['panLeftBtn', 1, 0], ['panRightBtn', -1, 0],
+    ];
+    dirs.forEach(([id, dx, dy])=>{
+      const btn = document.getElementById(id);
+      let timer = null;
+      const step = ()=> creationBoard.pan(dx, dy);
+      const start = (e)=>{
+        e.preventDefault();
+        step();
+        clearInterval(timer);
+        timer = setInterval(step, 140);
+      };
+      const stop = ()=>{ clearInterval(timer); timer = null; };
+      btn.addEventListener('pointerdown', start);
+      btn.addEventListener('pointerup', stop);
+      btn.addEventListener('pointerleave', stop);
+      btn.addEventListener('pointercancel', stop);
+    });
+  })();
+
   document.getElementById('editorClearBtn').addEventListener('click', ()=>{
     creationBoard.reset();
     hideEditorError();
@@ -2074,9 +2124,12 @@
       }
     });
     // Keep the cells tiny regardless of available width — this widget is
-    // meant to be a small aside, not a full-size board.
-    miniBoard.cellSizePx = ()=> 12;
+    // meant to be a small aside, not a full-size board. Shrink it further
+    // on narrow/mobile screens so it stays inconspicuous there too.
+    const mobileQuery = window.matchMedia('(max-width: 620px)');
+    miniBoard.cellSizePx = ()=> (mobileQuery.matches ? 10 : 12);
     miniBoard.load(region, { pieceCount: 3 });
+    window.addEventListener('resize', ()=> miniBoard.render());
     miniWrap.addEventListener('click', ()=>{
       if(miniBoard.won){
         miniWrap.classList.remove('solved');
