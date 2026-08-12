@@ -1478,6 +1478,7 @@
       const list = stagePlaySource === 'custom' ? customStages : STAGES;
       const st = list[currentStageIdx];
       st.completed = true;
+      saveProgress();
       document.getElementById('stageBanner').classList.add('show');
       const pieceSize = Math.round(st.region.length / st.pieceCount);
       document.getElementById('stageRevealFormula').textContent = `${pieceSize} × ${pieceCount}`;
@@ -1521,6 +1522,7 @@
      CHALLENGE MODE
   ===================================================================== */
   const bestTimes = { easy:null, normal:null, hard:null };
+  loadProgress(); // hoisted function declaration — safe to call before its own definition below
   let selectedDiff = 'normal';
   const ROUNDS = 5;
 
@@ -1652,6 +1654,7 @@
     const total = performance.now() - challengeStartTime;
     const isNewBest = !bestTimes[selectedDiff] || total < bestTimes[selectedDiff];
     if(isNewBest) bestTimes[selectedDiff] = total;
+    saveProgress();
 
     document.getElementById('resultTotalTime').textContent = formatTime(total);
     document.getElementById('resultBest').textContent = isNewBest ? '새 기록입니다' : `최고 기록 ${formatTime(bestTimes[selectedDiff])}`;
@@ -2012,6 +2015,7 @@
     // Every saved puzzle is built entirely from congruent, connected pieces,
     // so it is guaranteed solvable by construction — no extra search needed.
     customStages.push({ name, pieceCount, region, completed:false });
+    saveProgress();
     goto('createHome');
   });
 
@@ -2042,6 +2046,7 @@
       card.querySelector('.stage-card-del').addEventListener('click', (e)=>{
         e.stopPropagation();
         customStages.splice(i,1);
+        saveProgress();
         renderCustomGrid();
       });
       card.addEventListener('click', ()=> openStagePlay('custom', i));
@@ -2116,6 +2121,7 @@
     onWin: (pieceCount)=>{
       const sm = COLOR_STAGES[currentBigIdx].parsed[currentSmallIdx];
       sm.completed = true;
+      saveProgress();
       document.getElementById('colorBanner').classList.add('show');
       const pieceSize = Math.round(sm.region.length / pieceCount);
       document.getElementById('colorRevealFormula').textContent = `${pieceSize} × ${pieceCount}`;
@@ -2147,6 +2153,70 @@
     if(currentSmallIdx < list.length-1) openColorPlay(currentSmallIdx+1);
     else goto('colorSmallList');
   });
+
+  /* =====================================================================
+     SAVE / LOAD PROGRESS
+     Persists cleared stages, color-mode progress, challenge best times,
+     and player-made puzzles to the browser's localStorage (not a cookie —
+     cookies are sent to a server on every request and capped at ~4KB,
+     which is far too small for saved puzzle shapes; localStorage lives
+     entirely in the browser and comfortably fits this data). Falls back
+     to running normally, just without persistence, if storage is
+     unavailable (e.g. private browsing with storage disabled).
+  ===================================================================== */
+  const SAVE_KEY = 'ppp-progress-v1';
+
+  function saveProgress(){
+    try{
+      const data = {
+        stageCompleted: STAGES.map(s=> !!s.completed),
+        colorCompleted: COLOR_STAGES.map(big=> big.parsed.map(p=> !!p.completed)),
+        bestTimes: { ...bestTimes },
+        customStages: customStages.map(s=> ({
+          name: s.name, pieceCount: s.pieceCount, region: s.region, completed: !!s.completed
+        })),
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    }catch(err){
+      // Storage full or unavailable — fail silently, gameplay still works.
+    }
+  }
+
+  function loadProgress(){
+    let saved = null;
+    try{
+      saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    }catch(err){
+      saved = null;
+    }
+    if(!saved) return;
+
+    if(Array.isArray(saved.stageCompleted)){
+      saved.stageCompleted.forEach((done, i)=>{
+        if(STAGES[i]) STAGES[i].completed = !!done;
+      });
+    }
+    if(Array.isArray(saved.colorCompleted)){
+      saved.colorCompleted.forEach((doneList, i)=>{
+        const big = COLOR_STAGES[i];
+        if(!big || !Array.isArray(doneList)) return;
+        doneList.forEach((done, j)=>{
+          if(big.parsed[j]) big.parsed[j].completed = !!done;
+        });
+      });
+    }
+    if(saved.bestTimes){
+      Object.keys(bestTimes).forEach(diff=>{
+        if(typeof saved.bestTimes[diff] === 'number') bestTimes[diff] = saved.bestTimes[diff];
+      });
+    }
+    if(Array.isArray(saved.customStages)){
+      customStages.length = 0;
+      saved.customStages.forEach(s=>{
+        if(s && s.region && s.pieceCount) customStages.push(s);
+      });
+    }
+  }
 
   /* =====================================================================
      HEADER EASTER EGG — tiny "PPP" puzzle (3 P-pentominoes) pinned in the
