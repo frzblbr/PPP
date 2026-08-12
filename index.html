@@ -1522,7 +1522,78 @@
      CHALLENGE MODE
   ===================================================================== */
   const bestTimes = { easy:null, normal:null, hard:null };
-  loadProgress(); // hoisted function declaration — safe to call before its own definition below
+
+  /* =====================================================================
+     SAVE / LOAD PROGRESS
+     Persists cleared stages, color-mode progress, challenge best times,
+     and player-made puzzles to the browser's localStorage (not a cookie —
+     cookies are sent to a server on every request and capped at ~4KB,
+     which is far too small for saved puzzle shapes; localStorage lives
+     entirely in the browser and comfortably fits this data). Falls back
+     to running normally, just without persistence, if storage is
+     unavailable (e.g. private browsing with storage disabled).
+
+     This block must be defined (SAVE_KEY especially, since it's a const)
+     before loadProgress() is called below — calling a function that reads
+     a not-yet-initialized const throws, and that error was previously
+     getting silently swallowed by the try/catch inside, making every load
+     look like "no save found" even when one existed.
+  ===================================================================== */
+  const SAVE_KEY = 'ppp-progress-v1';
+
+  function saveProgress(){
+    try{
+      const data = {
+        stageCompleted: STAGES.map(s=> !!s.completed),
+        colorCompleted: COLOR_STAGES.map(big=> big.parsed.map(p=> !!p.completed)),
+        bestTimes: { ...bestTimes },
+        customStages: customStages.map(s=> ({
+          name: s.name, pieceCount: s.pieceCount, region: s.region, completed: !!s.completed
+        })),
+      };
+      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    }catch(err){
+      // Storage full or unavailable — fail silently, gameplay still works.
+    }
+  }
+
+  function loadProgress(){
+    let saved = null;
+    try{
+      saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+    }catch(err){
+      saved = null;
+    }
+    if(!saved) return;
+
+    if(Array.isArray(saved.stageCompleted)){
+      saved.stageCompleted.forEach((done, i)=>{
+        if(STAGES[i]) STAGES[i].completed = !!done;
+      });
+    }
+    if(Array.isArray(saved.colorCompleted)){
+      saved.colorCompleted.forEach((doneList, i)=>{
+        const big = COLOR_STAGES[i];
+        if(!big || !Array.isArray(doneList)) return;
+        doneList.forEach((done, j)=>{
+          if(big.parsed[j]) big.parsed[j].completed = !!done;
+        });
+      });
+    }
+    if(saved.bestTimes){
+      Object.keys(bestTimes).forEach(diff=>{
+        if(typeof saved.bestTimes[diff] === 'number') bestTimes[diff] = saved.bestTimes[diff];
+      });
+    }
+    if(Array.isArray(saved.customStages)){
+      customStages.length = 0;
+      saved.customStages.forEach(s=>{
+        if(s && s.region && s.pieceCount) customStages.push(s);
+      });
+    }
+  }
+
+  loadProgress();
   let selectedDiff = 'normal';
   const ROUNDS = 5;
 
@@ -2153,70 +2224,6 @@
     if(currentSmallIdx < list.length-1) openColorPlay(currentSmallIdx+1);
     else goto('colorSmallList');
   });
-
-  /* =====================================================================
-     SAVE / LOAD PROGRESS
-     Persists cleared stages, color-mode progress, challenge best times,
-     and player-made puzzles to the browser's localStorage (not a cookie —
-     cookies are sent to a server on every request and capped at ~4KB,
-     which is far too small for saved puzzle shapes; localStorage lives
-     entirely in the browser and comfortably fits this data). Falls back
-     to running normally, just without persistence, if storage is
-     unavailable (e.g. private browsing with storage disabled).
-  ===================================================================== */
-  const SAVE_KEY = 'ppp-progress-v1';
-
-  function saveProgress(){
-    try{
-      const data = {
-        stageCompleted: STAGES.map(s=> !!s.completed),
-        colorCompleted: COLOR_STAGES.map(big=> big.parsed.map(p=> !!p.completed)),
-        bestTimes: { ...bestTimes },
-        customStages: customStages.map(s=> ({
-          name: s.name, pieceCount: s.pieceCount, region: s.region, completed: !!s.completed
-        })),
-      };
-      localStorage.setItem(SAVE_KEY, JSON.stringify(data));
-    }catch(err){
-      // Storage full or unavailable — fail silently, gameplay still works.
-    }
-  }
-
-  function loadProgress(){
-    let saved = null;
-    try{
-      saved = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
-    }catch(err){
-      saved = null;
-    }
-    if(!saved) return;
-
-    if(Array.isArray(saved.stageCompleted)){
-      saved.stageCompleted.forEach((done, i)=>{
-        if(STAGES[i]) STAGES[i].completed = !!done;
-      });
-    }
-    if(Array.isArray(saved.colorCompleted)){
-      saved.colorCompleted.forEach((doneList, i)=>{
-        const big = COLOR_STAGES[i];
-        if(!big || !Array.isArray(doneList)) return;
-        doneList.forEach((done, j)=>{
-          if(big.parsed[j]) big.parsed[j].completed = !!done;
-        });
-      });
-    }
-    if(saved.bestTimes){
-      Object.keys(bestTimes).forEach(diff=>{
-        if(typeof saved.bestTimes[diff] === 'number') bestTimes[diff] = saved.bestTimes[diff];
-      });
-    }
-    if(Array.isArray(saved.customStages)){
-      customStages.length = 0;
-      saved.customStages.forEach(s=>{
-        if(s && s.region && s.pieceCount) customStages.push(s);
-      });
-    }
-  }
 
   /* =====================================================================
      HEADER EASTER EGG — tiny "PPP" puzzle (3 P-pentominoes) pinned in the
