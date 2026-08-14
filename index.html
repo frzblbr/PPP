@@ -314,6 +314,19 @@
   }
   @keyframes shake{ 0%,100%{transform:translateX(0);} 25%{transform:translateX(-3px);} 75%{transform:translateX(3px);} }
 
+  /* Tetris mode: a completing row switches to ink color (black in light
+     mode, white in dark mode) then fades and shrinks away, while rows
+     above it slide down (via inline transform, set from JS) to fill
+     the gap — a short, satisfying "line clear" beat. */
+  .cell.tetris-clear{
+    animation: tetrisClear .14s ease forwards;
+  }
+  @keyframes tetrisClear{
+    0%   { background: var(--ink); opacity: 1; transform: scale(1); }
+    100% { background: var(--ink); opacity: 0; transform: scale(0.3); }
+  }
+  .tetris-viewport{ align-items: flex-end; }
+
   .clear-banner{
     position:absolute; left:50%; top:14px; transform: translateX(-50%) translateY(-8px);
     background: var(--panel-2); border: 1px solid var(--accent); color: var(--accent);
@@ -426,10 +439,14 @@
           <h3>컬러 모드</h3>
           <p>전체 모양은 같지만 색칠된 칸의 위치가 달라 정답이 하나로 정해지는 문제들이에요. 조각마다 색칠된 칸이 정확히 하나씩 있어야 해요.</p>
         </button>
+        <button class="mode-card" data-goto="tetrisList">
+          <span class="tag">Tetris</span>
+          <h3>테트리스 모드</h3>
+          <p>한 가로줄이 전부 채워지면 그 줄이 사라지고 윗부분이 아래로 떨어져 붙어요. 도형이 점점 줄어드니, 칸을 전부 없애면 클리어!</p>
+        </button>
       </div>
+      <footer style="text-align:center; padding: 24px 0 8px; font-size: 13px; color: var(--ink-dim); opacity: .6;">made by frzblbr (with Claude ai)</footer>
     </section>
-
-    <!-- ===== STAGE LIST ===== -->
     <section class="screen" id="screen-stageList">
       <button class="back-btn" data-goto="home">← 처음으로</button>
       <div class="page-head">
@@ -699,6 +716,56 @@
         <div class="rtext">이 도형은 <b id="colorRevealFormula">—</b> 조각으로 나뉩니다</div>
         <div class="spacer"></div>
         <button class="btn-primary" id="colorNextBtn">다음 문제</button>
+      </div>
+    </section>
+
+    <!-- ===== TETRIS LIST ===== -->
+    <section class="screen" id="screen-tetrisList">
+      <button class="back-btn" data-goto="home">← 처음으로</button>
+      <div class="page-head">
+        <span class="eyebrow">Tetris</span>
+        <div class="page-title">스테이지 선택</div>
+        <div class="page-sub">한 가로줄이 전부 채워지면 그 줄이 사라지고 윗부분이 아래로 떨어져 붙어요. 도형의 모든 칸을 없애면 클리어예요.</div>
+      </div>
+      <div class="stage-grid" id="tetrisGrid"></div>
+    </section>
+
+    <!-- ===== TETRIS PLAY ===== -->
+    <section class="screen" id="screen-tetrisPlay">
+      <button class="back-btn" data-goto="tetrisList">← 스테이지 목록</button>
+      <div class="page-head">
+        <span class="eyebrow" id="tetrisPlayEyebrow">Stage 1</span>
+        <div class="page-title">줄을 채워서 없애고, 도형을 전부 지워보세요</div>
+      </div>
+
+      <div class="controls">
+        <button id="tetrisClearSelBtn" disabled>선택 해제</button>
+        <button id="tetrisUndoBtn" disabled>실행 취소</button>
+        <button id="tetrisResetBtn">초기화</button>
+      </div>
+
+      <div class="stage">
+        <div class="side-panel">
+          <div class="panel-box">
+            <h4>퍼즐 정보</h4>
+            <div class="play-stats" style="flex-direction:column; gap:8px;">
+              <div class="stage-formula" id="tetrisFormula">— × —</div>
+              <div>조각당 칸 수 × 조각 개수</div>
+              <div>남은 칸 <b id="tetrisRemaining">0</b></div>
+            </div>
+          </div>
+        </div>
+        <div class="board-outer tetris-viewport">
+          <div class="board" id="boardTetris"></div>
+          <div class="clear-banner" id="tetrisBanner">CLEAR</div>
+        </div>
+      </div>
+
+      <div class="reveal-box" id="tetrisReveal">
+        <div id="tetrisRevealPreview"></div>
+        <div class="rtext">원래 도형은 이런 모양이었어요!</div>
+        <div class="spacer"></div>
+        <button class="btn-primary" id="tetrisNextBtn">다음 스테이지</button>
       </div>
     </section>
 
@@ -1000,6 +1067,20 @@
   ];
 
   const customStages = []; // { name, pieceCount, region, completed }
+
+  /* =====================================================================
+     TETRIS MODE DATA
+     Same base rule as Stage mode (shape inferred from the first piece,
+     pieceCount given) — plus: whenever an entire row is filled, that row
+     is removed and everything above it drops down by one row.
+  ===================================================================== */
+  const TETRIS_STAGES = [
+    { pieceCount: 3, completed:false, region: [[1,0],[2,0],[0,1],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[1,3],[2,3]] },
+    { pieceCount: 4, completed:false, region: [[1,0],[3,0],[4,0],[0,1],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[4,2]] },
+    { pieceCount: 3, completed:false, region: [[3,0],[1,1],[2,1],[3,1],[0,2],[1,2],[2,2],[3,2],[4,2],[1,3],[2,3],[3,3]] },
+    { pieceCount: 2, completed:false, region: [[1,0],[0,1],[1,1],[2,1],[0,2],[1,2],[0,3],[1,3],[2,3],[3,3]] },
+    { pieceCount: 4, completed:false, region: [[2,0],[3,0],[4,0],[0,1],[1,1],[2,1],[4,1],[1,2],[2,2],[3,2],[4,2],[0,3],[1,3],[3,3],[4,3],[5,3],[0,4],[1,4],[2,4],[3,4]] },
+  ];
 
   /* =====================================================================
      COLOR MODE DATA
@@ -1359,6 +1440,332 @@
     }
   }
 
+  /* =========================================================================
+     TETRIS MODE BOARD
+     Same congruent-piece rule as the rest of the game (first placed piece
+     defines the shape via normalize/getOrientations/isConnected, exactly
+     like Stage mode's "guess the shape" flow), but the board itself is a
+     row-based grid: whenever an entire row becomes filled, that row is
+     removed and every row above it drops down by one — after which the
+     board's cell coordinates are simply recomputed as a fresh, connected
+     grid, so nothing above needs to satisfy "still touching" — it just IS
+     touching once it lands, exactly like real Tetris.
+  ========================================================================= */
+  // Shallow-clones a TetrisBoard gridRows array (a Map per row) so a
+  // snapshot can be taken before a mutation without being affected by
+  // later in-place changes to the live gridRows.
+  function cloneGridRows(rows){
+    return rows.map(rowMap => new Map(rowMap));
+  }
+
+  class TetrisBoard {
+    constructor(boardEl, opts){
+      this.boardEl = boardEl;
+      this.onChange = (opts && opts.onChange) || function(){};
+      this.onWin = (opts && opts.onWin) || function(){};
+      this.dragging = false;
+      this.dragMode = null;
+      this.animating = false;
+      this.boardEl.style.touchAction = 'none';
+      this.boardEl.addEventListener('pointerdown', e=> this.onPointerDown(e));
+      this.boardEl.addEventListener('pointermove', e=> this.onPointerMove(e));
+      window.addEventListener('pointerup', e=> this.onPointerUp(e));
+      window.addEventListener('pointercancel', e=> this.onPointerUp(e));
+    }
+    load(region, opts){
+      opts = opts || {};
+      this.pieceCount = opts.pieceCount;
+      this.targetSize = Math.round(region.length / this.pieceCount);
+      const minx = Math.min(...region.map(c=>c[0]));
+      const miny = Math.min(...region.map(c=>c[1]));
+      const norm = region.map(([x,y])=>[x-minx, y-miny]);
+      this.originalRegion = norm.map(c=>[...c]); // kept for the win-reveal silhouette
+      this._loadRegion = region;
+      this._loadOpts = opts;
+      this.cols = Math.max(...norm.map(c=>c[0])) + 1;
+      const rowCount = Math.max(...norm.map(c=>c[1])) + 1;
+      // gridRows[y] is a Map of col -> null (empty, part of the shape) or
+      // {pieceId, color} (filled). Columns with no entry are not part of
+      // the shape at all (transparent gaps in a jagged silhouette).
+      this.gridRows = [];
+      for(let y=0; y<rowCount; y++) this.gridRows.push(new Map());
+      norm.forEach(([x,y])=> this.gridRows[y].set(x, null));
+      this.selection = new Set();
+      this.referenceBaseShape = null;
+      this.referenceOrientations = null;
+      this.referenceKeySet = null;
+      this.nextPieceId = 0;
+      this.history = [];
+      this.won = false;
+      this.animating = false;
+      this.render();
+      this.onChange();
+      requestAnimationFrame(()=> this.render());
+    }
+    cellSizePx(){
+      const outer = this.boardEl.parentElement;
+      const available = Math.min((outer ? outer.clientWidth : 480) - 24, 520);
+      const byCols = Math.floor((available - (this.cols-1)*2)/this.cols);
+      return Math.max(16, Math.min(42, byCols));
+    }
+    render(){
+      if(!this.gridRows) return; // not loaded yet (e.g. a resize event before this stage was ever opened)
+      const px = this.cellSizePx();
+      this.cellPx = px;
+      this.boardEl.style.gridTemplateColumns = `repeat(${this.cols}, ${px}px)`;
+      this.boardEl.style.gridTemplateRows = `repeat(${this.gridRows.length}, ${px}px)`;
+      this.boardEl.innerHTML = '';
+      this.gridRows.forEach((rowMap, y)=>{
+        for(let x=0; x<this.cols; x++){
+          const key = x+','+y;
+          const d = document.createElement('div');
+          d.dataset.key = key;
+          d.dataset.row = y;
+          if(!rowMap.has(x)){
+            d.className = 'cell inactive';
+          } else {
+            const val = rowMap.get(x);
+            if(val){
+              d.className = 'cell filled';
+              d.style.background = val.color;
+              d.dataset.pieceId = val.pieceId;
+            } else {
+              d.className = 'cell active' + (this.selection.has(key) ? ' selected' : '');
+            }
+          }
+          this.boardEl.appendChild(d);
+        }
+      });
+    }
+    cellElFromPoint(clientX, clientY){
+      const el = document.elementFromPoint(clientX, clientY);
+      if(!el) return null;
+      const c = el.closest ? el.closest('.cell.active') : null;
+      if(!c || !this.boardEl.contains(c)) return null;
+      return c;
+    }
+    applyDrag(key){
+      const has = this.selection.has(key);
+      if(this.dragMode && !has){ this.selection.add(key); this.render(); this.onChange(); }
+      else if(!this.dragMode && has){ this.selection.delete(key); this.render(); this.onChange(); }
+    }
+    onPointerDown(e){
+      if(this.animating) return;
+      const filledEl = e.target.closest ? e.target.closest('.cell.filled') : null;
+      if(filledEl){
+        e.preventDefault();
+        // A row clear can shear a placed piece down to fewer cells than
+        // the puzzle's required piece size. Such a leftover fragment no
+        // longer represents a valid piece, so it can't be picked back up
+        // — only a piece still at the full target size can be removed.
+        const pieceId = filledEl.dataset.pieceId;
+        if(this.pieceCellCount(pieceId) === this.targetSize) this.removePieceById(pieceId);
+        return;
+      }
+      const cellEl = e.target.closest ? e.target.closest('.cell.active') : null;
+      if(!cellEl) return;
+      e.preventDefault();
+      const key = cellEl.dataset.key;
+      this.dragging = true;
+      this.dragMode = !this.selection.has(key);
+      this.applyDrag(key);
+      try{ this.boardEl.setPointerCapture(e.pointerId); }catch(err){}
+    }
+    onPointerMove(e){
+      if(!this.dragging) return;
+      const cellEl = this.cellElFromPoint(e.clientX, e.clientY);
+      if(!cellEl) return;
+      this.applyDrag(cellEl.dataset.key);
+    }
+    onPointerUp(){
+      if(!this.dragging) return;
+      this.dragging = false;
+      if(this.selection.size === this.targetSize) this.tryCommitSelection();
+    }
+    clearSelection(){ this.selection = new Set(); this.render(); this.onChange(); }
+    reject(msg){
+      const keys = [...this.selection];
+      this.selection = new Set();
+      this.render();
+      keys.forEach(key=>{
+        const el = this.boardEl.querySelector(`[data-key="${key}"]`);
+        if(el) el.classList.add('invalid');
+      });
+      this.onChange();
+      setTimeout(()=>{
+        keys.forEach(key=>{
+          const el = this.boardEl.querySelector(`[data-key="${key}"]`);
+          if(el) el.classList.remove('invalid');
+        });
+      }, 350);
+    }
+    hasAnyPiece(){
+      for(const rowMap of this.gridRows) for(const v of rowMap.values()) if(v) return true;
+      return false;
+    }
+    tryCommitSelection(){
+      const cells = [...this.selection].map(k=>k.split(',').map(Number));
+      const norm = normalize(cells);
+      // If every piece has since been removed (e.g. via undo), the shape
+      // a first piece defines must reset too — otherwise a stale
+      // reference from before the board went empty wrongly rejects a
+      // brand-new first piece as "not congruent".
+      if(!this.hasAnyPiece()){
+        this.referenceBaseShape = null;
+        this.referenceOrientations = null;
+        this.referenceKeySet = null;
+      }
+      if(cells.length !== this.targetSize){
+        this.reject(`조각당 칸 수(${this.targetSize}칸)와 같아야 해요`);
+        return;
+      }
+      let valid;
+      if(this.referenceKeySet === null){
+        valid = isConnected(cells);
+        if(valid){
+          this.referenceBaseShape = norm;
+          this.referenceOrientations = getOrientations(norm);
+          this.referenceKeySet = new Set(this.referenceOrientations.map(o=>keyOf(o)));
+        }
+      } else {
+        valid = this.referenceKeySet.has(keyOf(norm));
+      }
+      if(!valid){
+        this.reject(this.referenceKeySet === null
+          ? '선택한 칸이 서로 이어져 있어야 해요'
+          : '첫 조각과 합동인 모양이어야 해요 (회전·대칭 허용)');
+        return;
+      }
+      const color = PIECE_COLORS[this.nextPieceId % PIECE_COLORS.length];
+      const pieceId = this.nextPieceId++;
+      // Snapshot the board exactly as it was right before this piece is
+      // placed, so a single undo can reverse both the placement and any
+      // row-clear cascade it triggers — bringing a just-cleared row back.
+      this.history.push({ gridRows: cloneGridRows(this.gridRows), nextPieceId: pieceId });
+      cells.forEach(([x,y])=> this.gridRows[y].set(x, { pieceId, color }));
+      this.selection = new Set();
+      this.render();
+      this.onChange();
+
+      if(this.hasFullRow()){
+        this.animating = true;
+        this.onChange();
+        setTimeout(()=> this.clearNextFullRow(), 140);
+      }
+    }
+    hasFullRow(){
+      return this.gridRows.some(rowMap=>{
+        if(rowMap.size === 0) return false;
+        let full = true;
+        rowMap.forEach(v=>{ if(v === null) full = false; });
+        return full;
+      });
+    }
+    // Clears full rows one at a time, topmost (smallest y) first — after
+    // each single row is removed every remaining row's index may shift, so
+    // this re-scans fresh each time rather than acting on a stale list.
+    clearNextFullRow(){
+      let targetRow = -1;
+      for(let y=0; y<this.gridRows.length; y++){
+        const rowMap = this.gridRows[y];
+        if(rowMap.size === 0) continue;
+        let full = true;
+        rowMap.forEach(v=>{ if(v === null) full = false; });
+        if(full){ targetRow = y; break; }
+      }
+      if(targetRow === -1){
+        this.animating = false;
+        this.onChange();
+        if(this.gridRows.length === 0 && !this.won){
+          this.won = true;
+          this.onWin();
+        }
+        return;
+      }
+      this.animateSingleRowClear(targetRow);
+    }
+    // The target row fades out in place first; only once that fade fully
+    // finishes do the rows above it (smaller y) slide down by one
+    // row-height. After the slide, the data model catches up to match
+    // and an instant render locks it in before moving on to the next
+    // full row, if any.
+    animateSingleRowClear(targetRow){
+      const FADE_MS = 140;
+      const SLIDE_MS = 220;
+      const step = this.cellPx + 2; // matches the .board grid's 2px gap
+      this.boardEl.querySelectorAll('.cell').forEach(el=>{
+        const y = parseInt(el.dataset.row, 10);
+        if(y === targetRow){
+          // Only cells that were actually part of the shape in this row
+          // should fade — cells outside the shape's silhouette (class
+          // "inactive") were never part of the puzzle and must stay put.
+          if(!el.classList.contains('inactive')) el.classList.add('tetris-clear');
+        }
+      });
+      setTimeout(()=>{
+        this.boardEl.querySelectorAll('.cell').forEach(el=>{
+          const y = parseInt(el.dataset.row, 10);
+          if(y < targetRow){
+            el.style.transition = `transform ${SLIDE_MS}ms ease`;
+            el.style.transform = `translateY(${step}px)`;
+          }
+        });
+        setTimeout(()=>{
+          this.gridRows.splice(targetRow, 1);
+          this.render();
+          this.onChange();
+          this.clearNextFullRow();
+        }, SLIDE_MS);
+      }, FADE_MS);
+    }
+    pieceCellCount(pieceId){
+      if(pieceId === undefined || pieceId === null) return 0;
+      pieceId = String(pieceId);
+      let count = 0;
+      this.gridRows.forEach(rowMap=>{
+        rowMap.forEach(v=>{ if(v && String(v.pieceId) === pieceId) count++; });
+      });
+      return count;
+    }
+    removePieceById(pieceId){
+      if(pieceId === undefined || pieceId === null) return;
+      pieceId = String(pieceId);
+      this.gridRows.forEach(rowMap=>{
+        rowMap.forEach((v, x)=>{
+          if(v && String(v.pieceId) === pieceId) rowMap.set(x, null);
+        });
+      });
+      this.won = false;
+      this.render();
+      this.onChange();
+    }
+    // Undoes the most recent placement by restoring the board snapshot
+    // taken right before it. Since the snapshot predates any row clear
+    // that placement triggered, undoing right after a row disappears
+    // brings that row back too.
+    hasUndo(){
+      return this.history.length > 0 && !this.animating;
+    }
+    undo(){
+      if(this.animating) return;
+      const prev = this.history.pop();
+      if(!prev) return;
+      this.gridRows = prev.gridRows;
+      this.nextPieceId = prev.nextPieceId;
+      this.won = false;
+      this.render();
+      this.onChange();
+    }
+    remainingCells(){
+      let n = 0;
+      this.gridRows.forEach(rowMap=> rowMap.forEach(v=>{ if(v === null) n++; }));
+      return n;
+    }
+    resetFill(){
+      this.load(this._loadRegion, this._loadOpts);
+    }
+  }
+
   function renderPiecePreview(el, pieceCells){
     const norm = normalize(pieceCells);
     const maxx = Math.max(...norm.map(c=>c[0]));
@@ -1408,6 +1815,7 @@
     if(name === 'createHome') renderCustomGrid();
     if(name === 'colorHome') renderColorBigGrid();
     if(name === 'colorSmallList') renderColorSmallGrid();
+    if(name === 'tetrisList') renderTetrisGrid();
     if(name === 'createEditor'){
       // The editor board may have been sized/rendered while its screen was
       // still display:none (viewport had 0 width/height), which would
@@ -1538,6 +1946,11 @@
      a not-yet-initialized const throws, and that error was previously
      getting silently swallowed by the try/catch inside, making every load
      look like "no save found" even when one existed.
+
+     Completion is tracked by array position (stage N's completed flag is
+     saved.stageCompleted[N]) — simple and fine as long as stages are only
+     ever appended to the end of STAGES / COLOR_STAGES, never reordered,
+     inserted in the middle, or removed.
   ===================================================================== */
   const SAVE_KEY = 'ppp-progress-v1';
 
@@ -1546,6 +1959,7 @@
       const data = {
         stageCompleted: STAGES.map(s=> !!s.completed),
         colorCompleted: COLOR_STAGES.map(big=> big.parsed.map(p=> !!p.completed)),
+        tetrisCompleted: TETRIS_STAGES.map(s=> !!s.completed),
         bestTimes: { ...bestTimes },
         customStages: customStages.map(s=> ({
           name: s.name, pieceCount: s.pieceCount, region: s.region, completed: !!s.completed
@@ -1578,6 +1992,11 @@
         doneList.forEach((done, j)=>{
           if(big.parsed[j]) big.parsed[j].completed = !!done;
         });
+      });
+    }
+    if(Array.isArray(saved.tetrisCompleted)){
+      saved.tetrisCompleted.forEach((done, i)=>{
+        if(TETRIS_STAGES[i]) TETRIS_STAGES[i].completed = !!done;
       });
     }
     if(saved.bestTimes){
@@ -2226,6 +2645,73 @@
   });
 
   /* =====================================================================
+     TETRIS MODE
+  ===================================================================== */
+  function renderTetrisGrid(){
+    const grid = document.getElementById('tetrisGrid');
+    grid.innerHTML = '';
+    TETRIS_STAGES.forEach((st, i)=>{
+      const pieceSize = Math.round(st.region.length / st.pieceCount);
+      const card = document.createElement('button');
+      card.className = 'stage-card' + (st.completed ? ' done' : '');
+      card.innerHTML = `
+        <div class="stage-num">${String(i+1).padStart(2,'0')}</div>
+        <div class="stage-thumb" id="tetrisThumb${i}"></div>
+        <div class="stage-formula">${pieceSize} × ${st.pieceCount}</div>
+        <div class="stage-status">${st.completed ? '완료' : '미해결'}</div>
+      `;
+      card.addEventListener('click', ()=> openTetrisPlay(i));
+      grid.appendChild(card);
+      renderShapeThumbnail(card.querySelector(`#tetrisThumb${i}`), st.region, 90);
+    });
+  }
+
+  const boardTetrisEl = document.getElementById('boardTetris');
+  let currentTetrisIdx = 0;
+
+  const tetrisBoard = new TetrisBoard(boardTetrisEl, {
+    onChange: ()=>{
+      document.getElementById('tetrisClearSelBtn').disabled = tetrisBoard.selection.size === 0;
+      document.getElementById('tetrisUndoBtn').disabled = !tetrisBoard.hasUndo();
+      document.getElementById('tetrisRemaining').textContent = tetrisBoard.remainingCells();
+      if(!tetrisBoard.won){
+        document.getElementById('tetrisBanner').classList.remove('show');
+        document.getElementById('tetrisReveal').classList.remove('show');
+      }
+    },
+    onWin: ()=>{
+      const st = TETRIS_STAGES[currentTetrisIdx];
+      st.completed = true;
+      saveProgress();
+      document.getElementById('tetrisBanner').classList.add('show');
+      renderShapeThumbnail(document.getElementById('tetrisRevealPreview'), tetrisBoard.originalRegion, 140);
+      document.getElementById('tetrisReveal').classList.add('show');
+      const nextBtn = document.getElementById('tetrisNextBtn');
+      nextBtn.textContent = currentTetrisIdx < TETRIS_STAGES.length-1 ? '다음 스테이지' : '스테이지 목록으로';
+    }
+  });
+
+  function openTetrisPlay(i){
+    currentTetrisIdx = i;
+    const st = TETRIS_STAGES[i];
+    const pieceSize = Math.round(st.region.length / st.pieceCount);
+    document.getElementById('tetrisPlayEyebrow').textContent = `Stage ${i+1} / ${TETRIS_STAGES.length}`;
+    document.getElementById('tetrisFormula').textContent = `${pieceSize} × ${st.pieceCount}`;
+    document.getElementById('tetrisBanner').classList.remove('show');
+    document.getElementById('tetrisReveal').classList.remove('show');
+    goto('tetrisPlay');
+    tetrisBoard.load(st.region, { pieceCount: st.pieceCount });
+  }
+
+  document.getElementById('tetrisClearSelBtn').addEventListener('click', ()=> tetrisBoard.clearSelection());
+  document.getElementById('tetrisUndoBtn').addEventListener('click', ()=> tetrisBoard.undo());
+  document.getElementById('tetrisResetBtn').addEventListener('click', ()=> tetrisBoard.resetFill());
+  document.getElementById('tetrisNextBtn').addEventListener('click', ()=>{
+    if(currentTetrisIdx < TETRIS_STAGES.length-1) openTetrisPlay(currentTetrisIdx+1);
+    else goto('tetrisList');
+  });
+
+  /* =====================================================================
      HEADER EASTER EGG — tiny "PPP" puzzle (3 P-pentominoes) pinned in the
      header. Purely decorative and independent of every other mode.
   ===================================================================== */
@@ -2276,6 +2762,7 @@
       challengeBoard.render();
       freeBoard.render();
       colorBoard.render();
+      tetrisBoard.render();
       creationBoard.updateViewportSize();
       creationBoard.render();
     }, 120);
